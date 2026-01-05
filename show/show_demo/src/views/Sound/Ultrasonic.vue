@@ -1,19 +1,41 @@
 <template>
   <div class="h-full flex flex-col gap-4">
     <!-- ==================== 0. 顶部全局切换栏 ==================== -->
-    <GlassCard class="flex-none p-3 flex justify-between items-center bg-slate-800/80">
-      <div class="flex items-center gap-3">
-        <el-avatar :size="32" :icon="isAdmin ? 'Management' : 'UserFilled'" :class="isAdmin ? 'bg-purple-500' : 'bg-cyan-500'" />
-        <span class="text-slate-200 font-bold text-lg">{{ isAdmin ? '管理员控制台' : '室内定位 - 个人终端' }}</span>
+    <GlassCard class="flex-none !p-0 bg-slate-800/80 overflow-hidden">
+      <!-- 使用内部 div 确保布局撑满且对齐，避免拥挤 -->
+      <div class="flex items-center justify-between w-full p-3">
+        <!-- 左侧：Logo 与标题 -->
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <el-avatar 
+              :size="40" 
+              :icon="isAdmin ? 'Management' : 'UserFilled'" 
+              :class="isAdmin ? 'bg-purple-600' : 'bg-cyan-600'" 
+              class="shadow-lg shadow-cyan-500/20"
+            />
+            <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full"></div>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-slate-100 font-bold text-lg leading-tight tracking-wide">
+              {{ isAdmin ? '管理员控制台' : '室内定位 - 个人终端' }}
+            </span>
+            <span class="text-slate-400 text-xs font-mono">
+              {{ isAdmin ? 'SYSTEM: ADMIN_ROOT' : 'ID: USER_8842_X' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 右侧：切换按钮 (强制靠右) -->
+        <el-button 
+          :type="isAdmin ? 'primary' : 'warning'" 
+          @click="switchMode" 
+          round
+          class="ml-auto shadow-md transition-all hover:scale-105"
+        >
+          <el-icon class="mr-2"><Switch /></el-icon>
+          <span class="font-bold">切换到{{ isAdmin ? '个人端' : '管理端' }}</span>
+        </el-button>
       </div>
-      <el-button 
-        :type="isAdmin ? 'primary' : 'warning'" 
-        @click="switchMode" 
-        round
-      >
-        <el-icon class="mr-2"><Switch /></el-icon>
-        切换到{{ isAdmin ? '个人端' : '管理端' }}
-      </el-button>
     </GlassCard>
 
     <!-- ==================== A. 个人端视图 ==================== -->
@@ -23,7 +45,7 @@
         <div class="flex items-center gap-4">
           <!-- 状态标签 -->
           <el-tag v-if="!isHistoryMode" :type="collisionDetected ? 'danger' : 'success'" effect="dark" class="font-mono transition-colors duration-200">
-            {{ collisionDetected ? '避障转向' : '正常巡检' }}
+            {{ collisionDetected ? '定位中' : '定位中' }}
           </el-tag>
           <el-tag v-else type="warning" effect="dark" class="font-mono">
             历史回放模式
