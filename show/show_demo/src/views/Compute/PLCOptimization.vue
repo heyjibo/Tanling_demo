@@ -1237,7 +1237,13 @@ import * as echarts from 'echarts'
 const activeModel = ref<'waterQuality' | 'concentration' | 'microorganism' | 'medication'>('waterQuality')
 
 // 模型导航项
-const modelNavItems = [
+const modelNavItems: {
+  id: 'waterQuality' | 'concentration' | 'microorganism' | 'medication',
+  name: string,
+  icon: string,
+  activeClass: string,
+  dotClass: string
+}[] = [
   { 
     id: 'waterQuality', 
     name: '水质稳定', 
