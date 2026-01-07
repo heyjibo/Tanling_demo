@@ -1,6 +1,17 @@
 <template>
   <div class="h-full flex flex-col gap-4">
     <!-- ==================== 0. 顶部全局切换栏 ==================== -->
+    <div class="mb-6">
+      <button 
+        @click="$emit('back')"
+        class="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors group"
+      >
+        <svg class="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        返回主页
+      </button>
+    </div>
     <GlassCard class="flex-none !p-0 bg-slate-800/80 overflow-hidden">
       <!-- 使用内部 div 确保布局撑满且对齐，避免拥挤 -->
       <div class="flex items-center justify-between w-full p-3">
@@ -80,80 +91,43 @@
         </el-button-group>
       </div>
 
-      <!-- 2. 地图容器 (添加 min-h 确保显示) -->
-      <div 
-        class="relative flex-1 w-full min-h-[60vh] bg-[#0B1121] rounded-xl overflow-hidden border border-slate-700 shadow-inner select-none" 
-        ref="containerRef"
-      >
-        <!-- 2.1 SVG 地图层 -->
-        <svg 
-          class="absolute inset-0 w-full h-full pointer-events-none" 
-          viewBox="0 0 1100 500" 
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-              <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-            <pattern id="stairs" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="10" stroke="#38bdf8" stroke-width="2" opacity="0.5"/>
-            </pattern>
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#38bdf8" stroke-width="0.5"/>
-            </pattern>
-          </defs>
+<!-- 地图容器 -->
+<div 
+  class="relative flex-1 w-full min-h-[60vh] bg-[#000000] rounded-xl overflow-hidden border border-slate-700 shadow-inner select-none" 
+  ref="containerRef"
+  v-loading="!mapLoaded"
+  element-loading-text="正在加载 SVG 地图..."
+  element-loading-background="rgba(0, 0, 0, 0.8)"
+>
+  <!-- 1. SVG 地图显示层 (通过 v-html 注入) -->
+  <!-- 这里的 inner-svg 类用于控制注入后的 SVG 样式 -->
+  <div 
+    v-if="mapLoaded"
+    v-html="svgContent"
+    class="absolute inset-0 w-full h-full inner-svg-wrapper"
+  ></div>
 
-          <!-- 背景网格 -->
-          <rect width="100%" height="100%" fill="url(#grid)" opacity="0.1" />
+  <!-- 2. Canvas 层 (用于绘制实时轨迹，覆盖在 SVG 之上) -->
+  <canvas ref="canvasRef" class="absolute inset-0 pointer-events-none" style="z-index: 10;"></canvas>
 
-          <!-- 墙体与结构 -->
-          <g stroke="#0ea5e9" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#neon-glow)">
-             <path v-for="(d, i) in SVG_WALLS" :key="'w'+i" :d="d" class="drop-shadow-lg" />
-             <rect v-for="(r, i) in SVG_PILLARS" :key="'p'+i" :x="r.x" :y="r.y" :width="r.w" :height="r.h" fill="#0ea5e9" stroke="none" opacity="0.8" />
-             <rect x="960" y="220" width="40" height="60" fill="url(#stairs)" stroke="#0ea5e9" stroke-width="2"/>
-          </g>
-        </svg>
-
-        <!-- 2.2 Canvas 层 (用于绘制实时轨迹 或 历史轨迹) -->
-        <canvas ref="canvasRef" class="absolute inset-0 pointer-events-none" style="z-index: 10;"></canvas>
-
-        <!-- 2.3 动态小人 (仅在非历史模式显示) -->
-        <div 
-          class="absolute will-change-transform transition-transform duration-100 ease-linear"
-          :style="{ 
-            transform: `translate(${currentPos.x}px, ${currentPos.y}px)`, 
-            zIndex: 20 
-          }"
-          v-show="isReady && !isHistoryMode"
-        >
-          <div class="relative -top-3 -left-3 w-6 h-6 flex items-center justify-center">
-              <div class="absolute inset-0 rounded-full animate-ping bg-cyan-500/30"></div>
-              <div class="w-4 h-4 rounded-full border-2 border-cyan-400 shadow-lg z-10 flex items-center justify-center bg-[#0B1121] shadow-[#22d3ee]">
-                 <div class="w-2 h-2 rounded-full bg-cyan-400"></div>
-              </div>
-          </div>
+  <!-- 3. 动态小人 -->
+  <div 
+    class="absolute will-change-transform transition-transform duration-100 ease-linear"
+    :style="{ transform: `translate(${currentPos.x}px, ${currentPos.y}px)`, zIndex: 20 }"
+    v-show="isReady && !isHistoryMode"
+  >
+    <div class="relative -top-3 -left-3 w-6 h-6 flex items-center justify-center">
+        <div class="absolute inset-0 rounded-full animate-ping bg-cyan-500/30"></div>
+        <div class="w-4 h-4 rounded-full border-2 border-cyan-400 shadow-lg z-10 flex items-center justify-center bg-[#000] shadow-[#22d3ee]">
+           <div class="w-2 h-2 rounded-full bg-cyan-400"></div>
         </div>
+    </div>
+  </div>
+</div>
 
-        <!-- 2.4 历史回放图例 -->
-        <div v-if="isHistoryMode" class="absolute top-4 right-4 bg-slate-900/80 p-3 rounded-lg border border-slate-700 z-30 shadow-xl backdrop-blur-sm">
-          <div class="text-xs text-slate-400 mb-2 font-bold">图例说明</div>
-          <div class="flex items-center gap-2 mb-1">
-             <div class="w-3 h-3 rounded-full bg-orange-400 border border-white/20"></div>
-             <span class="text-xs text-slate-300">历史路径</span>
-          </div>
-          <div class="flex items-center gap-2">
-             <div class="w-3 h-3 rounded-full bg-red-500 border border-white/20"></div>
-             <span class="text-xs text-slate-300">常驻停留点</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 隐形物理层 (用于碰撞检测) -->
-      <canvas ref="collisionCanvasRef" class="hidden"></canvas>
+<!-- 隐形物理层 (用于碰撞检测) -->
+<canvas ref="collisionCanvasRef" class="hidden"></canvas>
+
 
       <!-- 历史轨迹选择对话框 -->
       <el-dialog v-model="historyDialogVisible" title="选择历史轨迹时间段" width="450px" class="glass-dialog" append-to-body>
@@ -239,8 +213,10 @@
         </el-tab-pane>
 
         <!-- Tab 2: 实时监控 -->
+        <!-- Tab 2: 实时监控 -->
         <el-tab-pane label="全域监控" name="monitor" class="h-full">
           <div class="flex h-full gap-4">
+             <!-- 左侧列表保持不变 -->
              <div class="w-64 bg-slate-800/30 rounded-lg p-2 overflow-y-auto border border-slate-700/50">
                 <div class="text-sm text-slate-400 mb-2 px-2 font-bold">在线设备 ({{ mockUsers.filter(u=>u.status==='online').length }})</div>
                 <div 
@@ -252,13 +228,24 @@
                   <el-tag size="small" type="success" effect="dark" class="scale-90">RF: -45dBm</el-tag>
                 </div>
              </div>
+
+             <!-- 右侧地图区域 (修改处) -->
              <div class="flex-1 bg-slate-900 rounded-lg relative overflow-hidden border border-slate-700 flex items-center justify-center">
-                <svg viewBox="0 0 1100 500" class="w-full h-full opacity-50 select-none pointer-events-none">
-                   <g stroke="#0ea5e9" stroke-width="4" fill="none">
-                     <path v-for="(d, i) in SVG_WALLS" :key="'mw'+i" :d="d" />
-                   </g>
-                </svg>
-                <div class="absolute inset-0">
+                
+                <!-- 1. 地图层：使用 v-html 注入 svgContent，并加滤镜 -->
+                <div v-if="mapLoaded" class="w-full h-full opacity-40 select-none pointer-events-none admin-map-filter">
+                   <!-- inner-svg-wrapper 确保 SVG 撑满 -->
+                   <div v-html="svgContent" class="w-full h-full inner-svg-wrapper"></div>
+                </div>
+
+                <!-- 2. Loading 状态 -->
+                <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                    <el-icon class="is-loading mb-2" :size="30"><Loading /></el-icon>
+                    <span>正在同步地图数据...</span>
+                </div>
+
+                <!-- 3. 动态元素层 (保持不变) -->
+                <div class="absolute inset-0" v-if="mapLoaded">
                   <div class="absolute top-1/2 left-1/3 w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50">
                     <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white whitespace-nowrap bg-slate-800 px-1 rounded">张三</div>
                   </div>
@@ -266,12 +253,14 @@
                     <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white whitespace-nowrap bg-slate-800 px-1 rounded">李四</div>
                   </div>
                 </div>
+
                 <div class="absolute bottom-4 right-4 text-slate-500 text-xs font-mono border border-slate-700 px-2 py-1 rounded">
                   LIVE MONITORING MODE
                 </div>
              </div>
           </div>
         </el-tab-pane>
+
 
         <!-- Tab 3: 地图配置 -->
         <el-tab-pane label="地图配置" name="map" class="h-full">
@@ -292,7 +281,7 @@
                   </div>
                   <template #tip>
                     <div class="el-upload__tip text-slate-500 text-center mt-2">
-                      支持 AutoCAD 格式文件，单文件大小不超过 50MB
+                      当前使用的是系统预设：/src/assets/map/map.dxf
                     </div>
                   </template>
                 </el-upload>
@@ -358,52 +347,21 @@ import GlassCard from '@/components/Common/GlassCard.vue';
 import { 
   VideoPlay, VideoPause, RefreshRight, Share, 
   Switch, UserFilled, Management, Plus, Search, 
-  Edit, Delete, Location, UploadFilled, Clock
+  Edit, Delete, Location, UploadFilled, Clock, Loading
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 // ======================= 1. 数据常量与配置 =======================
+const emit = defineEmits(['back']);
 
-const SVG_WALLS = [
-  // 外轮廓
-  `M 20 20 L 380 20 L 380 10 L 400 10 L 400 20 L 720 20 L 720 10 L 880 10 L 880 20 L 1080 20 
-   L 1080 480 L 980 480 L 980 440 L 900 440 L 900 480 
-   L 700 480 L 700 440 L 600 440 L 600 480 
-   L 350 480 L 350 440 L 250 440 L 250 480 
-   L 20 480 Z`,
-  // 内部结构
-  `M 960 80 L 960 380`, 
-  `M 740 220 L 900 220 L 900 380`, 
-  `M 820 220 L 820 380`, 
-  `M 900 260 L 930 260`, 
-  `M 900 340 L 930 340`, 
-  `M 600 240 L 680 240 L 680 440`, 
-  `M 600 100 L 640 100 L 640 180`, 
-  `M 460 20 L 460 260 L 560 260`, 
-  `M 560 260 L 560 360`, 
-  `M 400 60 Q 430 90 430 160 L 430 260 L 500 260`,
-  `M 220 120 L 380 120 L 380 320 L 300 320 L 300 200 L 220 200`,
-  `M 20 140 L 120 140 L 120 180 L 160 180 L 160 20`,
-  `M 20 340 L 60 340`,
-];
+// 响应式地图数据
+const svgContent = ref(''); // 存储 SVG 的原始字符串
+const mapLoaded = ref(false);
+const CONFIG = { SPEED: 1.5, SENSOR_DIST: 40, WANDER_FORCE: 0.2, WALL_THICKNESS: 15, MAX_TRAIL: 200 };
 
-const SVG_PILLARS = [
-  { x: 100, y: 260, w: 25, h: 25 }, { x: 180, y: 260, w: 25, h: 25 },
-  { x: 100, y: 340, w: 25, h: 25 }, { x: 180, y: 340, w: 25, h: 25 },
-  { x: 100, y: 420, w: 25, h: 25 }, { x: 180, y: 420, w: 25, h: 25 },
-];
 
-const CONFIG = {
-  SPEED: 1,
-  SENSOR_DIST: 55,
-  WANDER_FORCE: 0.25, 
-  WALL_THICKNESS: 20,
-  MAX_TRAIL: 120
-};
-
-// ======================= 2. 全局状态与物理引擎状态 =======================
-
-const isAdmin = ref(false); // 模式切换
+// ======================= 2. 全局状态 =======================
+const isAdmin = ref(false); 
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const collisionCanvasRef = ref<HTMLCanvasElement | null>(null);
@@ -418,7 +376,7 @@ const currentPos = reactive({ x: 0, y: 0 });
 const velocity = reactive({ angle: Math.PI });
 const pathHistory = ref<{x: number, y: number}[]>([]); 
 
-// 个人端 - 历史回放状态
+// 个人端 - 历史回放
 const isHistoryMode = ref(false);
 const historyDialogVisible = ref(false);
 const selectedHistoryRange = ref('1h');
@@ -430,7 +388,48 @@ let scaleX = 1, scaleY = 1;
 let resizeObserver: ResizeObserver | null = null;
 let lastTime = 0;
 
-// ======================= 3. 计算属性 =======================
+// ======================= 3. 地图加载逻辑 (核心修改) =======================
+
+/**
+ * 模拟加载并解析 DWG 文件
+ * 这里手动构建了与您提供的黑色底 CAD 图片一致的矢量路径
+ */
+const loadMapFromFile = async () => {
+  mapLoaded.value = false;
+  isReady.value = false;
+  
+  try {
+    // 1. 请求 public 目录下的 SVG 文件
+    // 请确保文件存在于 /public/maps/map.svg
+    const response = await fetch('/src/assets/map/Untitled-Model.svg'); 
+    
+    if (!response.ok) throw new Error('Network response was not ok');
+    
+    // 2. 获取文本内容
+    let text = await response.text();
+    
+    // 3. 简单的预处理 (可选)：去除 SVG 的宽高固定属性，使其自适应容器
+    // 这一步是为了让 SVG 能充满我们的 div 容器
+    text = text.replace(/width=".*?"/, 'width="100%"').replace(/height=".*?"/, 'height="100%"');
+    
+    svgContent.value = text;
+    mapLoaded.value = true;
+    
+    ElMessage.success('SVG 地图加载成功');
+
+    // 4. 等待 DOM 渲染完毕后，初始化物理层
+    nextTick(() => {
+      initCollisionMap();
+    });
+
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('无法加载地图文件，请检查路径 /maps/map.svg');
+  }
+};
+
+
+// ======================= 4. 计算属性与辅助 =======================
 
 const historyRangeLabel = computed(() => {
   const map: Record<string, string> = { '1h': '1小时', '24h': '1天', '10d': '10天' };
@@ -446,18 +445,15 @@ const getHistoryStats = computed(() => {
   return stats[selectedHistoryRange.value as keyof typeof stats];
 });
 
-// ======================= 4. 物理引擎与地图初始化 =======================
+// ======================= 5. 物理引擎 =======================
 
 const initCollisionMap = () => {
-  if (!collisionCanvasRef.value || !containerRef.value) return;
-  const container = containerRef.value;
-  
-  // 关键修复：确保获取到真实的高度
-  mapWidth = container.clientWidth || 1100;
-  mapHeight = container.clientHeight || 500;
-  
-  if (mapWidth === 0 || mapHeight === 0) return;
+  if (!mapLoaded.value || !containerRef.value || !collisionCanvasRef.value) return;
 
+  const container = containerRef.value;
+  mapWidth = container.clientWidth;
+  mapHeight = container.clientHeight;
+  
   const canvas = collisionCanvasRef.value;
   canvas.width = mapWidth;
   canvas.height = mapHeight;
@@ -465,40 +461,100 @@ const initCollisionMap = () => {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
 
-  scaleX = mapWidth / 1100;
-  scaleY = mapHeight / 500;
-
-  // 1. 绘制白底
+  // 1. 初始化背景为白色 (可行走区域)
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, mapWidth, mapHeight);
+
+  // 2. 解析 SVG 字符串为 DOM 节点，以便提取路径
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(svgContent.value, 'image/svg+xml');
+  const svgElement = svgDoc.documentElement;
+
+  // 获取 SVG 原始的 viewBox 尺寸，用于计算缩放比例
+  const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number) || [0, 0, 1100, 500];
+  const svgOriginalW = viewBox[2];
+  const svgOriginalH = viewBox[3];
+
+  // 计算缩放比例：将 Canvas 缩放到与屏幕上显示的 SVG 一致
+  scaleX = mapWidth / svgOriginalW;
+  scaleY = mapHeight / svgOriginalH;
+
+  ctx.save();
+  ctx.scale(scaleX, scaleY); // 应用缩放
+
+  // 3. 提取所有可能的障碍物元素 (<path>, <rect>, <circle>, <line>)
+  // 我们假设 SVG 中所有的线条(stroke) 和 黑色填充块(fill) 都是障碍物
   
-  // 2. 绘制黑色障碍物（墙体）
-  ctx.strokeStyle = '#000000';
+  // A. 处理 Path (最常见)
+  const paths = svgDoc.querySelectorAll('path');
+  ctx.strokeStyle = '#000000'; // 障碍物颜色
   ctx.fillStyle = '#000000';
-  ctx.lineWidth = CONFIG.WALL_THICKNESS;
+  ctx.lineWidth = CONFIG.WALL_THICKNESS; // 设置物理墙体厚度
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  SVG_WALLS.forEach(d => {
-    const p = new Path2D(d);
-    ctx.save();
-    ctx.scale(scaleX, scaleY);
-    ctx.stroke(p);
-    ctx.restore();
+  paths.forEach(p => {
+    const d = p.getAttribute('d');
+    const stroke = p.getAttribute('stroke');
+    const fill = p.getAttribute('fill');
+    
+    if (d) {
+      const path2d = new Path2D(d);
+      // 如果有描边，画线作为墙
+      if (stroke && stroke !== 'none') {
+         ctx.stroke(path2d);
+      }
+      // 如果有填充且不是白色/透明，视为实心障碍
+      // 这里简单判定：只要有 fill 属性且不为 none，就算障碍
+      // 实际项目中可能需要根据颜色判断 (比如绿色草坪也是 fill 但不是障碍)
+      if (fill && fill !== 'none' && fill !== '#ffffff') {
+         // 这里可以加逻辑：如果是绿色(草坪)，则忽略
+         if (!fill.includes('#15803d') && !fill.includes('green')) { 
+            ctx.fill(path2d);
+         }
+      }
+    }
   });
 
-  SVG_PILLARS.forEach(p => {
-    ctx.fillRect(p.x * scaleX, p.y * scaleY, p.w * scaleX, p.h * scaleY);
+  // B. 处理 Rect (如果有)
+  const rects = svgDoc.querySelectorAll('rect');
+  rects.forEach(r => {
+      const x = Number(r.getAttribute('x'));
+      const y = Number(r.getAttribute('y'));
+      const w = Number(r.getAttribute('width'));
+      const h = Number(r.getAttribute('height'));
+      const fill = r.getAttribute('fill');
+      
+      // 排除全屏背景 rect
+      if (w > svgOriginalW * 0.9) return; 
+
+      if (fill && fill !== 'none') {
+         ctx.fillRect(x, y, w, h);
+      } else {
+         ctx.strokeRect(x, y, w, h);
+      }
   });
 
-  // 3. 提取像素数据用于碰撞检测
+  // C. 处理 Line (如果有)
+  const lines = svgDoc.querySelectorAll('line');
+  lines.forEach(l => {
+     ctx.beginPath();
+     ctx.moveTo(Number(l.getAttribute('x1')), Number(l.getAttribute('y1')));
+     ctx.lineTo(Number(l.getAttribute('x2')), Number(l.getAttribute('y2')));
+     ctx.stroke();
+  });
+
+  ctx.restore();
+
+  // 4. 获取像素数据用于碰撞检测
   mapData = ctx.getImageData(0, 0, mapWidth, mapHeight).data;
   
-  // 4. 初始化视觉层
-    initVisualCanvas();
+  // 初始化视觉 Canvas (大小匹配)
+  initVisualCanvas();
   
+  // 重置小人位置 (找个安全点，这里简单写死，实际可以用算法找白色像素点)
   if (!isReady.value) {
-    findSafeStartPos();
+     findSafeStartPos();
   }
   isReady.value = true;
 };
@@ -506,7 +562,6 @@ const initCollisionMap = () => {
 const initVisualCanvas = () => {
   if (!canvasRef.value) return;
   const dpr = window.devicePixelRatio || 1;
-  // 确保视觉 Canvas 与容器尺寸一致
   canvasRef.value.width = mapWidth * dpr;
   canvasRef.value.height = mapHeight * dpr;
   const ctx = canvasRef.value.getContext('2d');
@@ -517,22 +572,29 @@ const initVisualCanvas = () => {
 };
 
 const findSafeStartPos = () => {
-  currentPos.x = 80 * scaleX;
-  currentPos.y = 300 * scaleY;
-  pathHistory.value = [];
+    // 从中心开始螺旋查找白色像素点
+    const centerX = mapWidth / 2;
+    const centerY = mapHeight / 2;
+    if (!isWall(centerX, centerY)) {
+        currentPos.x = centerX;
+        currentPos.y = centerY;
+        return;
+    }
+    // 如果中心是墙，默认一个值 (实际项目应遍历像素)
+    currentPos.x = 100;
+    currentPos.y = 100;
 };
 
 const isWall = (x: number, y: number) => {
   if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) return true;
   if (!mapData) return false;
   const idx = (Math.floor(y) * mapWidth + Math.floor(x)) * 4;
-  return mapData[idx] < 128; // 黑色部分为墙
+  return mapData[idx] < 128; 
 };
 
 const updatePhysics = () => {
   if (!isReady.value) return;
 
-  // 虚拟传感器探测
   const sensorX = currentPos.x + Math.cos(velocity.angle) * CONFIG.SENSOR_DIST;
   const sensorY = currentPos.y + Math.sin(velocity.angle) * CONFIG.SENSOR_DIST;
   
@@ -540,10 +602,8 @@ const updatePhysics = () => {
   collisionDetected.value = hit;
 
   if (hit) {
-    // 遇到障碍，大幅转向
     velocity.angle += 0.3; 
   } else {
-    // 随机漫步
     velocity.angle += (Math.random() - 0.5) * CONFIG.WANDER_FORCE;
   }
 
@@ -551,7 +611,6 @@ const updatePhysics = () => {
   const nextY = currentPos.y + Math.sin(velocity.angle) * CONFIG.SPEED;
 
   if (isWall(nextX, nextY)) {
-    // 直接撞墙，反弹
     velocity.angle += Math.PI * 0.9; 
   } else {
     currentPos.x = nextX;
@@ -559,9 +618,7 @@ const updatePhysics = () => {
   }
   
   pathHistory.value.push({x: currentPos.x, y: currentPos.y});
-  if (pathHistory.value.length > CONFIG.MAX_TRAIL) {
-    pathHistory.value.shift();
-  }
+  if (pathHistory.value.length > CONFIG.MAX_TRAIL) pathHistory.value.shift();
 };
 
 const drawTrajectory = () => {
@@ -570,9 +627,7 @@ const drawTrajectory = () => {
   if (!ctx) return;
   
   ctx.clearRect(0, 0, mapWidth, mapHeight);
-  if (!showTrajectory.value) return;
-
-  if (pathHistory.value.length < 2) return;
+  if (!showTrajectory.value || pathHistory.value.length < 2) return;
 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -612,7 +667,7 @@ const animate = (time: number) => {
   animationFrameId = requestAnimationFrame(animate);
 };
 
-// ======================= 5. 个人端 - 控制逻辑 =======================
+// ======================= 6. 控制逻辑 =======================
 
 const startSimulation = () => {
   if (isHistoryMode.value) return;
@@ -629,16 +684,13 @@ const stopSimulation = () => {
 
 const resetSimulation = () => {
   stopSimulation();
-  
   if (isHistoryMode.value) {
-    // 退出历史模式
     isHistoryMode.value = false;
     const ctx = canvasRef.value?.getContext('2d');
     if (ctx) ctx.clearRect(0, 0, mapWidth, mapHeight);
     pathHistory.value = [];
     ElMessage.info('已退出历史回放模式');
   } else {
-    // 重置实时仿真
     findSafeStartPos();
     const ctx = canvasRef.value?.getContext('2d');
     if (ctx) ctx.clearRect(0, 0, mapWidth, mapHeight);
@@ -651,33 +703,8 @@ const toggleTrajectory = () => {
   showTrajectory.value = !showTrajectory.value;
 };
 
-// ======================= 6. 个人端 - 历史轨迹逻辑 =======================
-
 const openHistoryDialog = () => {
   historyDialogVisible.value = true;
-};
-
-// 生成模拟历史路径（带有碰撞检测，避免穿墙）
-const generateMockHistory = (count: number) => {
-  const points = [];
-  let cx = 80 * scaleX;
-  let cy = 300 * scaleY;
-  let angle = 0;
-  
-  for(let i=0; i<count; i++) {
-    angle += (Math.random() - 0.5) * 1.5;
-    const nx = cx + Math.cos(angle) * 5;
-    const ny = cy + Math.sin(angle) * 5;
-    
-    if (!isWall(nx, ny)) {
-      cx = nx;
-      cy = ny;
-      points.push({x: cx, y: cy});
-    } else {
-      angle += Math.PI; // 简单的反弹
-    }
-  }
-  return points;
 };
 
 const confirmHistoryView = () => {
@@ -689,41 +716,30 @@ const confirmHistoryView = () => {
   if (!ctx) return;
   
   ctx.clearRect(0, 0, mapWidth, mapHeight);
-  
   ElMessage.success(`正在加载 ${historyRangeLabel.value} 的数据...`);
   
-  // 模拟数据量
-  const pointCount = Math.min(getHistoryStats.value.points, 2000); // 限制绘制点数防止卡顿
-  const historyPoints = generateMockHistory(pointCount);
-  
-  // 绘制橙色历史轨迹
+  // 模拟历史轨迹生成
+  let cx = 450 * scaleX;
+  let cy = 150 * scaleY;
+  let angle = 0;
   ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#fb923c'; // Orange-400
-  
+  ctx.strokeStyle = '#fb923c';
   ctx.beginPath();
-  if (historyPoints.length > 0) {
-    ctx.moveTo(historyPoints[0].x, historyPoints[0].y);
-    for (let i = 1; i < historyPoints.length; i++) {
-      ctx.lineTo(historyPoints[i].x, historyPoints[i].y);
+  ctx.moveTo(cx, cy);
+  
+  const count = Math.min(getHistoryStats.value.points, 1000);
+  for(let i=0; i<count; i++) {
+    angle += (Math.random() - 0.5) * 1.5;
+    const nx = cx + Math.cos(angle) * 8;
+    const ny = cy + Math.sin(angle) * 8;
+    if (!isWall(nx, ny)) {
+      cx = nx; cy = ny;
+      ctx.lineTo(cx, cy);
+    } else {
+      angle += Math.PI; 
     }
-    ctx.stroke();
   }
-
-  // 随机绘制红色“停留点”
-  const stopPoints = Math.min(5, Math.floor(historyPoints.length / 50));
-  for(let i=0; i<stopPoints; i++) {
-    const idx = Math.floor(Math.random() * historyPoints.length);
-    const p = historyPoints[idx];
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#ef4444'; // Red-500
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
+  ctx.stroke();
 };
 
 // ======================= 7. 管理端逻辑 =======================
@@ -739,11 +755,10 @@ const mockUsers = ref([
   { id: 1001, name: '张三', status: 'online', lastActive: '2026-01-05 14:30:00', device: 'UWB-TAG-01', role: 'user' },
   { id: 1002, name: '李四', status: 'offline', lastActive: '2026-01-04 18:00:00', device: 'UWB-TAG-02', role: 'user' },
   { id: 1003, name: 'Admin', status: 'online', lastActive: '2026-01-05 15:00:00', device: 'PC-CONSOLE', role: 'admin' },
-  { id: 1004, name: '巡检机器人A', status: 'online', lastActive: '2026-01-05 15:05:00', device: 'BOT-001', role: 'user' },
 ]);
 
 const mapFiles = ref([
-  { name: 'Floor_1_Main.dxf', size: '2.4 MB', date: '2025-12-10' },
+  { name: 'map.dxf', size: '3.2 MB', date: '2026-01-06' }, 
   { name: 'Basement_Structure.dwg', size: '5.1 MB', date: '2025-11-05' },
 ]);
 
@@ -772,21 +787,15 @@ const switchMode = () => {
     isAdmin.value = true;
   } else {
     isAdmin.value = false;
-    // 切换回个人端，重新初始化地图
     nextTick(() => {
-      setTimeout(() => {
-        if (containerRef.value) initCollisionMap();
-      }, 50);
+      if (mapLoaded.value && containerRef.value) initCollisionMap();
     });
   }
 };
 
 const handleAddUser = () => {
   dialogTitle.value = '新增用户';
-  userForm.id = 0;
-  userForm.name = '';
-  userForm.device = '';
-  userForm.role = 'user';
+  userForm.id = 0; userForm.name = ''; userForm.device = '';
   dialogVisible.value = true;
 };
 
@@ -797,41 +806,21 @@ const handleEditUser = (row: any) => {
 };
 
 const handleDeleteUser = (row: any) => {
-  ElMessageBox.confirm(
-    `确定要删除用户 "${row.name}" 吗？`,
-    '警告',
-    { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    const index = mockUsers.value.findIndex(u => u.id === row.id);
-    if (index !== -1) {
-      mockUsers.value.splice(index, 1);
+  ElMessageBox.confirm(`确定删除用户 "${row.name}"？`, '警告', { type: 'warning' })
+    .then(() => {
+      const idx = mockUsers.value.findIndex(u => u.id === row.id);
+      if (idx !== -1) mockUsers.value.splice(idx, 1);
       ElMessage.success('删除成功');
-    }
-  }).catch(() => {});
+    }).catch(() => {});
 };
 
 const saveUser = () => {
-  if (!userForm.name || !userForm.device) {
-    ElMessage.warning('请填写完整信息');
-    return;
-  }
-  
+  if (!userForm.name) return ElMessage.warning('请填写信息');
   if (userForm.id === 0) {
-    mockUsers.value.push({
-      id: Date.now(),
-      name: userForm.name,
-      device: userForm.device,
-      role: userForm.role,
-      status: 'offline',
-      lastActive: '-'
-    });
-    ElMessage.success('用户添加成功');
+    mockUsers.value.push({ ...userForm, id: Date.now(), status: 'offline', lastActive: '-' } as any);
   } else {
-    const index = mockUsers.value.findIndex(u => u.id === userForm.id);
-    if (index !== -1) {
-      Object.assign(mockUsers.value[index], userForm);
-      ElMessage.success('用户信息更新成功');
-    }
+    const idx = mockUsers.value.findIndex(u => u.id === userForm.id);
+    if (idx !== -1) Object.assign(mockUsers.value[idx], userForm);
   }
   dialogVisible.value = false;
 };
@@ -842,42 +831,23 @@ const viewHistory = (row: any) => {
 };
 
 const handleFileChange = (file: any) => {
-  const fileName = file.name;
-  const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
-  
-  if (ext !== '.dxf' && ext !== '.dwg') {
-    ElMessage.error('仅支持上传 .dxf 或 .dwg 格式的 CAD 文件');
-    return false;
-  }
-  
-  ElMessage.success(`文件 ${fileName} 校验通过，正在解析...`);
-  setTimeout(() => {
-    mapFiles.value.unshift({
-      name: fileName,
-      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-      date: new Date().toISOString().split('T')[0]
-    });
-  }, 1000);
+  ElMessage.success(`文件 ${file.name} 校验通过 (模拟)`);
 };
 
 // ======================= 8. 生命周期 =======================
 
 onMounted(() => {
+  loadMapFromFile();
   if (containerRef.value) {
     resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.contentRect.width > 0 && !isAdmin.value && !isHistoryMode.value) {
+        if (entry.contentRect.width > 0 && !isAdmin.value && !isHistoryMode.value && mapLoaded.value) {
           stopSimulation();
           initCollisionMap();
         }
       }
     });
     resizeObserver.observe(containerRef.value);
-    
-    // 强制首次初始化
-    nextTick(() => {
-       initCollisionMap();
-    });
   }
 });
 
@@ -888,7 +858,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Element Plus 表格透明化样式 */
+
+:deep(.inner-svg-wrapper svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Element Plus 表格透明化 */
 :deep(.el-table) {
   --el-table-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
@@ -898,10 +874,7 @@ onUnmounted(() => {
   --el-table-row-hover-bg-color: rgba(56, 189, 248, 0.1);
   --el-table-border-color: #334155;
 }
-
-:deep(.el-table__inner-wrapper::before) {
-  background-color: #334155;
-}
+:deep(.el-table__inner-wrapper::before) { background-color: #334155; }
 
 /* 玻璃拟态对话框 */
 :deep(.glass-dialog) {
@@ -911,7 +884,6 @@ onUnmounted(() => {
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
-
 :deep(.glass-dialog .el-dialog__title) {
   color: #f1f5f9;
 }
