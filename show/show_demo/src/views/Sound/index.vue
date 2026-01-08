@@ -171,8 +171,8 @@
                 <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-green-500/10 mb-3">
                   <span class="text-2xl">⚡</span>
                 </div>
-                <div class="text-2xl font-bold text-green-400 font-mono">ONLINE</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">System Status</div>
+                <div class="text-2xl font-bold text-green-400 font-mono">系统正常</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">所有系统在线</div>
               </div>
               
               <!-- 状态 B -->
@@ -181,7 +181,7 @@
                   <span class="text-2xl">📡</span>
                 </div>
                 <div class="text-2xl font-bold text-blue-400 font-mono">128</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Active Sensors</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">正在监听设备数</div>
               </div>
               
               <!-- 状态 C: 时间 -->
@@ -190,7 +190,7 @@
                   <span class="text-2xl">🕒</span>
                 </div>
                 <div class="text-2xl font-bold text-purple-400 font-mono">{{ currentTime }}</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">{{ currentDate }}</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">最后更新时间</div>
               </div>
             </div>
           </div>
@@ -199,7 +199,7 @@
         <!-- 底部版权 -->
         <div class="mt-8 mb-4 text-center flex-none">
           <p class="text-slate-600 text-xs font-mono">
-            © 2026 Industrial Sound Analysis System v2.1.0 | Data Updated
+            工业智能平台 v2.1.0 • © 2024 安庆石化 • 数据更新时间: {{ currentDate }}
           </p>
         </div>
       </div>

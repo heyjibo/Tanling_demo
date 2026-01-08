@@ -56,7 +56,7 @@
         <div class="flex items-center gap-4">
           <!-- 状态标签 -->
           <el-tag v-if="!isHistoryMode" :type="collisionDetected ? 'danger' : 'success'" effect="dark" class="font-mono transition-colors duration-200">
-            {{ collisionDetected ? '定位中' : '定位中' }}
+            {{ collisionDetected ? '边界修正' : '定位正常' }}
           </el-tag>
           <el-tag v-else type="warning" effect="dark" class="font-mono">
             历史回放模式
@@ -90,7 +90,7 @@
         </el-button-group>
       </div>
 
-      <!-- 地图容器 (核心优化) -->
+      <!-- 地图容器 -->
       <div 
         class="relative flex-1 w-full min-h-[60vh] bg-[#0a0e17] rounded-xl overflow-hidden border border-slate-700 shadow-inner select-none" 
         ref="containerRef"
@@ -99,10 +99,10 @@
         element-loading-background="rgba(10, 14, 23, 0.95)"
         element-loading-spinner="el-icon-loading"
       >
-        <!-- 网格背景 (提升层次感) -->
+        <!-- 网格背景 -->
         <div class="absolute inset-0 pointer-events-none bg-grid opacity-10"></div>
         
-        <!-- 1. SVG 地图显示层 (优化渲染) -->
+        <!-- 1. SVG 地图显示层 -->
         <div 
           v-if="mapLoaded"
           v-html="svgContent"
@@ -112,24 +112,21 @@
         <!-- 2. Canvas 轨迹层 -->
         <canvas ref="canvasRef" class="absolute inset-0 pointer-events-none" style="z-index: 10;"></canvas>
 
-        <!-- 3. 动态定位小人 (优化视觉) -->
+        <!-- 3. 动态定位小人 -->
         <div 
-          class="absolute will-change-transform transition-transform duration-100 ease-linear"
+          class="absolute will-change-transform"
           :style="{ transform: `translate(${currentPos.x}px, ${currentPos.y}px)`, zIndex: 20 }"
-          v-show="isReady && !isHistoryMode"
+          v-show="isReady"
         >
-          <div class="relative -top-3 -left-3 w-6 h-6 flex items-center justify-center">
+          <!-- 偏移校正 div，确保中心对齐 -->
+          <div class="relative -top-2 -left-2 w-4 h-4 flex items-center justify-center">
             <div class="absolute inset-0 rounded-full animate-ping bg-cyan-500/30 shadow-lg shadow-cyan-500/20"></div>
-      
-              <div class="w-4 h-4 rounded-full border-2 border-cyan-400 z-10 flex items-center justify-center bg-[#0a0e17] shadow-[0_0_8px_rgba(34,211,238,0.8)]">
-                <div class="w-2 h-2 rounded-full bg-cyan-400"></div>
-              </div>
+            <div class="w-3 h-3 rounded-full border border-cyan-400 z-10 flex items-center justify-center bg-[#0a0e17] shadow-[0_0_8px_rgba(34,211,238,0.8)]">
+              <div class="w-1.5 h-1.5 rounded-full bg-cyan-400"></div>
             </div>
           </div>
         </div>
-
-      <!-- 隐形碰撞检测Canvas -->
-      <canvas ref="collisionCanvasRef" class="hidden"></canvas>
+      </div>
 
       <!-- 历史轨迹选择对话框 -->
       <el-dialog v-model="historyDialogVisible" title="选择历史轨迹时间段" width="450px" class="glass-dialog" append-to-body>
@@ -229,23 +226,18 @@
                 </div>
              </div>
 
-             <!-- 右侧地图区域 (优化显示) -->
+             <!-- 右侧地图区域 -->
              <div class="flex-1 bg-[#0a0e17] rounded-lg relative overflow-hidden border border-slate-700 flex items-center justify-center">
-                <!-- 网格背景 -->
                 <div class="absolute inset-0 pointer-events-none bg-grid opacity-8"></div>
-                
-                <!-- 1. 地图层 -->
                 <div v-if="mapLoaded" class="w-full h-full select-none pointer-events-none admin-map-container">
                    <div v-html="svgContent" class="w-full h-full inner-svg-wrapper admin-svg-style"></div>
                 </div>
-
-                <!-- 2. Loading 状态 -->
                 <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
                     <el-icon class="is-loading mb-2" :size="30"><Loading /></el-icon>
                     <span class="text-slate-400">正在同步地图数据...</span>
                 </div>
 
-                <!-- 3. 用户定位标记 -->
+                <!-- 3. 用户定位标记 (演示用) -->
                 <div class="absolute inset-0" v-if="mapLoaded">
                   <div class="absolute top-1/2 left-1/3 w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50 ring-1 ring-green-400/50">
                     <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white whitespace-nowrap bg-slate-800/90 px-1.5 py-0.5 rounded shadow-md">张三</div>
@@ -358,29 +350,33 @@ const emit = defineEmits(['back']);
 // 地图核心配置
 const svgContent = ref('');
 const mapLoaded = ref(false);
+// 运动配置
 const CONFIG = { 
-  SPEED: 1.5, 
-  SENSOR_DIST: 40, 
-  WANDER_FORCE: 0.2, 
-  WALL_THICKNESS: 15, 
-  MAX_TRAIL: 200 
+  SPEED: 1.5,           
+  WANDER_FORCE: 0.1,    
+  MAX_TRAIL: 300 
 };
 
 // ======================= 2. 全局状态 =======================
 const isAdmin = ref(false); 
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
-const collisionCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 const isRunning = ref(false);
 const isReady = ref(false);
 const showTrajectory = ref(true);
-const collisionDetected = ref(false);
+const collisionDetected = ref(false); // 这里仅表示接触到边界
 const fps = ref(0);
 
+// 小人当前位置
 const currentPos = reactive({ x: 0, y: 0 });
-const velocity = reactive({ angle: Math.PI });
+// 运动矢量
+const velocity = reactive({ angle: Math.random() * Math.PI * 2 });
+// 历史路径点
 const pathHistory = ref<{x: number, y: number}[]>([]); 
+
+// 活动范围边界 (Bounding Box)
+const boundary = reactive({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
 
 // 历史回放相关
 const isHistoryMode = ref(false);
@@ -389,65 +385,111 @@ const selectedHistoryRange = ref('1h');
 
 // 临时变量
 let animationFrameId: number;
-let mapData: Uint8ClampedArray | null = null;
-let mapWidth = 0, mapHeight = 0;
-let scaleX = 1, scaleY = 1;
 let resizeObserver: ResizeObserver | null = null;
 let lastTime = 0;
 
-// ======================= 3. 地图加载逻辑 (核心优化) =======================
+// ======================= 3. 地图加载与边界计算 =======================
 const loadMapFromFile = async () => {
   mapLoaded.value = false;
   isReady.value = false;
   
   try {
-    // 1. 加载SVG地图文件
     const svgPath = '/src/assets/map/Untitled-Model.svg';
     const response = await fetch(svgPath); 
-    
     if (!response.ok) throw new Error(`加载失败: ${response.status}`);
     
-    // 2. 处理SVG内容
     let text = await response.text();
-    // 优化SVG渲染属性
+    // 强制SVG填满，但保持比例，这样我们能算出它的真实渲染区域
     text = text
       .replace(/width=".*?"/, 'width="100%"')
       .replace(/height=".*?"/, 'height="100%"')
-      .replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" image-rendering="optimizeQuality" preserveAspectRatio="xMidYMid meet"')
-      .replace(/viewBox=".*?"/, 'viewBox="0 0 1000 600"');
+      .replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"');
     
     svgContent.value = text;
     mapLoaded.value = true;
-    ElMessage.success('SVG 地图加载成功');
-
-    // 3. 初始化碰撞检测
-    nextTick(() => {
-      initCollisionMap();
-    });
+    
+    // 等待DOM渲染后计算边界
+    nextTick(() => initBoundaries());
 
   } catch (error) {
-    // 降级处理：使用默认地图
-    console.error('地图加载失败:', error);
-    ElMessage.error('地图加载失败，使用默认地图');
-    
+    console.warn('SVG加载失败，使用默认地图', error);
+    // 默认 SVG
     svgContent.value = `
-      <svg width="100%" height="100%" viewBox="0 0 1000 600" style="background: #0a0e17; fill: #1e293b; stroke: #38bdf8; stroke-width: 2;">
-        <rect x="50" y="50" width="900" height="500" fill="none" stroke="#2dd4bf" stroke-width="3"/>
-        <line x1="300" y1="50" x2="300" y2="550" stroke="#2dd4bf" stroke-width="2"/>
-        <line x1="600" y1="50" x2="600" y2="550" stroke="#2dd4bf" stroke-width="2"/>
-        <line x1="50" y1="200" x2="950" y2="200" stroke="#2dd4bf" stroke-width="2"/>
-        <line x1="50" y1="400" x2="950" y2="400" stroke="#2dd4bf" stroke-width="2"/>
-        <text x="175" y="120" fill="#94a3b8" font-size="14">A区办公区</text>
-        <text x="450" y="120" fill="#94a3b8" font-size="14">B区走廊</text>
-        <text x="750" y="120" fill="#94a3b8" font-size="14">C区机房</text>
-        <text x="175" y="320" fill="#94a3b8" font-size="14">D区会议室</text>
-        <text x="450" y="320" fill="#94a3b8" font-size="14">E区过道</text>
-        <text x="750" y="320" fill="#94a3b8" font-size="14">F区储藏室</text>
+      <svg width="100%" height="100%" viewBox="0 0 1000 600" style="background: transparent;">
+        <rect x="10" y="10" width="980" height="580" fill="none" stroke="#333" stroke-width="2"/>
+        <text x="500" y="300" fill="#666" font-size="20" text-anchor="middle">DEFAULT MAP AREA</text>
       </svg>
     `;
     mapLoaded.value = true;
-    nextTick(() => initCollisionMap());
+    nextTick(() => initBoundaries());
   }
+};
+
+// 计算矩形活动范围
+const initBoundaries = () => {
+  if (!containerRef.value) return;
+
+  const containerW = containerRef.value.clientWidth;
+  const containerH = containerRef.value.clientHeight;
+
+  // 1. 尝试解析 viewBox
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgContent.value, "image/svg+xml");
+  const svgEl = doc.documentElement;
+  const viewBox = svgEl.getAttribute('viewBox');
+
+  let vw = 1000, vh = 600; // 默认值
+  if (viewBox) {
+    const parts = viewBox.split(/[\s,]+/).map(Number);
+    if (parts.length === 4) {
+      vw = parts[2];
+      vh = parts[3];
+    }
+  }
+
+  // 2. 计算缩放比例 (模拟 object-fit: contain / preserveAspectRatio="xMidYMid meet")
+  const containerRatio = containerW / containerH;
+  const svgRatio = vw / vh;
+  
+  let renderW, renderH, offsetX, offsetY;
+
+  if (containerRatio > svgRatio) {
+    // 容器更宽，高度适配
+    renderH = containerH;
+    renderW = vh * svgRatio * (containerH / vh); // 其实就是 renderH * svgRatio
+    offsetY = 0;
+    offsetX = (containerW - renderW) / 2;
+  } else {
+    // 容器更高，宽度适配
+    renderW = containerW;
+    renderH = vw / svgRatio * (containerW / vw);
+    offsetX = 0;
+    offsetY = (containerH - renderH) / 2;
+  }
+
+  // 3. 设定活动边界 (内缩 10px 防止贴边太死)
+  const PADDING = 130;
+  boundary.minX = offsetX + PADDING;
+  boundary.maxX = offsetX + renderW - PADDING;
+  boundary.minY = offsetY + PADDING;
+  boundary.maxY = offsetY + renderH - PADDING;
+
+  // 4. 初始化 Canvas
+  const dpr = window.devicePixelRatio || 1;
+  if (canvasRef.value) {
+    canvasRef.value.width = containerW * dpr;
+    canvasRef.value.height = containerH * dpr;
+    canvasRef.value.style.width = `${containerW}px`;
+    canvasRef.value.style.height = `${containerH}px`;
+    const ctx = canvasRef.value.getContext('2d');
+    if (ctx) ctx.scale(dpr, dpr);
+  }
+
+  // 5. 设置初始位置 (中心点)
+  currentPos.x = offsetX + renderW / 2;
+  currentPos.y = offsetY + renderH / 2;
+  
+  isReady.value = true;
 };
 
 // ======================= 4. 计算属性 =======================
@@ -465,281 +507,108 @@ const getHistoryStats = computed(() => {
   return stats[selectedHistoryRange.value as keyof typeof stats];
 });
 
-// ======================= 5. 物理引擎 (优化精度) =======================
-const initCollisionMap = () => {
-  if (!mapLoaded.value || !containerRef.value || !collisionCanvasRef.value) return;
-
-  const container = containerRef.value;
-  mapWidth = container.clientWidth;
-  mapHeight = container.clientHeight;
-  
-  // 适配设备像素比
-  const dpr = window.devicePixelRatio || 1;
-  const canvas = collisionCanvasRef.value;
-  canvas.width = mapWidth * dpr;
-  canvas.height = mapHeight * dpr;
-  canvas.style.width = `${mapWidth}px`;
-  canvas.style.height = `${mapHeight}px`;
-  
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return;
-  ctx.scale(dpr, dpr);
-
-  // 初始化背景
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, mapWidth, mapHeight);
-
-  // 解析SVG
-  const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(svgContent.value, 'image/svg+xml');
-  const svgElement = svgDoc.documentElement;
-
-  // 计算缩放比例
-  const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number) || [0, 0, 1000, 600];
-  const [x0, y0, svgW, svgH] = viewBox;
-  const scale = Math.min(mapWidth / svgW, mapHeight / svgH);
-  scaleX = scale;
-  scaleY = scale;
-
-  ctx.save();
-  ctx.scale(scaleX, scaleY);
-  ctx.translate(-x0, -y0);
-
-  // 绘制障碍物
-  ctx.strokeStyle = '#000000'; 
-  ctx.fillStyle = '#000000';
-  ctx.lineWidth = CONFIG.WALL_THICKNESS; 
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  // 处理Path
-  const paths = svgDoc.querySelectorAll('path');
-  paths.forEach(p => {
-    const d = p.getAttribute('d');
-    const stroke = p.getAttribute('stroke');
-    const fill = p.getAttribute('fill');
-    
-    if (d) {
-      const path2d = new Path2D(d);
-      if (stroke && stroke !== 'none' && !stroke.includes('transparent')) {
-         ctx.stroke(path2d);
-      }
-      if (fill && fill !== 'none' && fill !== '#ffffff' && !fill.includes('transparent')) {
-         if (!fill.includes('#15803d') && !fill.includes('green')) { 
-            ctx.fill(path2d);
-         }
-      }
-    }
-  });
-
-  // 处理Rect
-  const rects = svgDoc.querySelectorAll('rect');
-  rects.forEach(r => {
-      const x = Number(r.getAttribute('x') || 0);
-      const y = Number(r.getAttribute('y') || 0);
-      const w = Number(r.getAttribute('width') || 0);
-      const h = Number(r.getAttribute('height') || 0);
-      const fill = r.getAttribute('fill');
-      
-      if (w > 0 && h > 0 && !(w > svgW * 0.9 && h > svgH * 0.9)) {
-        if (fill && fill !== 'none' && fill !== '#ffffff') {
-           ctx.fillRect(x, y, w, h);
-        } else {
-           ctx.strokeRect(x, y, w, h);
-        }
-      }
-  });
-
-  // 处理Line
-  const lines = svgDoc.querySelectorAll('line');
-  lines.forEach(l => {
-      const x1 = Number(l.getAttribute('x1') || 0);
-      const y1 = Number(l.getAttribute('y1') || 0);
-      const x2 = Number(l.getAttribute('x2') || 0);
-      const y2 = Number(l.getAttribute('y2') || 0);
-      const stroke = l.getAttribute('stroke');
-      
-      if (stroke && stroke !== 'none') {
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-      }
-    });
-
-  ctx.restore();
-
-  // 获取碰撞数据
-  mapData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  
-  // 初始化视觉Canvas
-  initVisualCanvas(dpr);
-  
-  // 找安全起点
-  if (!isReady.value) {
-     findSafeStartPos();
-  }
-  isReady.value = true;
-};
-
-// 初始化视觉Canvas
-const initVisualCanvas = (dpr: number) => {
-  if (!canvasRef.value) return;
-  canvasRef.value.width = mapWidth * dpr;
-  canvasRef.value.height = mapHeight * dpr;
-  canvasRef.value.style.width = `${mapWidth}px`;
-  canvasRef.value.style.height = `${mapHeight}px`;
-  const ctx = canvasRef.value.getContext('2d');
-  if (ctx) {
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, mapWidth, mapHeight);
-  }
-};
-
-// 查找安全起点
-const findSafeStartPos = () => {
-  const candidates = [
-    {x: mapWidth * 0.2, y: mapHeight * 0.2},
-    {x: mapWidth * 0.5, y: mapHeight * 0.5},
-    {x: mapWidth * 0.8, y: mapHeight * 0.8}
-  ];
-  
-  for (const pos of candidates) {
-    if (!isWall(pos.x, pos.y)) {
-      currentPos.x = pos.x;
-      currentPos.y = pos.y;
-      return;
-    }
-  }
-
-  // 兜底
-// 接续上文的findSafeStartPos兜底部分
-  currentPos.x = 100;
-  currentPos.y = 100;
-  for (let y = 50; y < mapHeight - 50; y += 20) {
-    for (let x = 50; x < mapWidth - 50; x += 20) {
-      if (!isWall(x, y)) {
-        currentPos.x = x;
-        currentPos.y = y;
-        return;
-      }
-    }
-  }
-};
-
-// 碰撞检测核心函数（适配DPR）
-const isWall = (x: number, y: number) => {
-  if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) return true;
-  if (!mapData) return false;
-  
-  const dpr = window.devicePixelRatio || 1;
-  const scaledX = Math.floor(x * dpr);
-  const scaledY = Math.floor(y * dpr);
-  const idx = (scaledY * Math.floor(mapWidth * dpr) + scaledX) * 4;
-  
-  return mapData[idx] < 128; 
-};
-
-// 物理引擎更新（优化碰撞反馈）
+// ======================= 5. 物理引擎 (矩形边界反弹) =======================
 const updatePhysics = () => {
   if (!isReady.value) return;
 
-  // 1. 传感器检测
-  const sensorX = currentPos.x + Math.cos(velocity.angle) * CONFIG.SENSOR_DIST;
-  const sensorY = currentPos.y + Math.sin(velocity.angle) * CONFIG.SENSOR_DIST;
-  
-  // 2. 碰撞状态更新
-  const hit = isWall(sensorX, sensorY);
-  collisionDetected.value = hit;
+  // 1. 随机微调角度 (模拟自然行走)
+  velocity.angle += (Math.random() - 0.5) * CONFIG.WANDER_FORCE;
 
-  // 3. 角度调整（优化转向平滑度）
-  if (hit) {
-    velocity.angle += 0.3 + Math.random() * 0.2; // 随机偏移避免卡死
-  } else {
-    velocity.angle += (Math.random() - 0.5) * CONFIG.WANDER_FORCE;
+  // 2. 计算下一步坐标
+  let nextX = currentPos.x + Math.cos(velocity.angle) * CONFIG.SPEED;
+  let nextY = currentPos.y + Math.sin(velocity.angle) * CONFIG.SPEED;
+  
+  let hitBoundary = false;
+
+  // 3. 边界检测与反弹
+  // X轴检测
+  if (nextX < boundary.minX) {
+    nextX = boundary.minX;
+    velocity.angle = Math.PI - velocity.angle; // 水平翻转
+    hitBoundary = true;
+  } else if (nextX > boundary.maxX) {
+    nextX = boundary.maxX;
+    velocity.angle = Math.PI - velocity.angle;
+    hitBoundary = true;
   }
 
-  // 4. 位置更新
-  const nextX = currentPos.x + Math.cos(velocity.angle) * CONFIG.SPEED;
-  const nextY = currentPos.y + Math.sin(velocity.angle) * CONFIG.SPEED;
-
-  if (isWall(nextX, nextY)) {
-    velocity.angle += Math.PI * 0.9; // 碰撞后大幅转向
-  } else {
-    currentPos.x = nextX;
-    currentPos.y = nextY;
+  // Y轴检测
+  if (nextY < boundary.minY) {
+    nextY = boundary.minY;
+    velocity.angle = -velocity.angle; // 垂直翻转
+    hitBoundary = true;
+  } else if (nextY > boundary.maxY) {
+    nextY = boundary.maxY;
+    velocity.angle = -velocity.angle;
+    hitBoundary = true;
   }
-  
-  // 5. 轨迹记录
+
+  // 更新状态
+  currentPos.x = nextX;
+  currentPos.y = nextY;
+  collisionDetected.value = hitBoundary;
+
+  // 4. 记录轨迹
   if (showTrajectory.value && isRunning.value) {
-    pathHistory.value.push({x: currentPos.x, y: currentPos.y});
-    if (pathHistory.value.length > CONFIG.MAX_TRAIL) {
-      pathHistory.value.shift();
+    const last = pathHistory.value[pathHistory.value.length - 1];
+    // 只有移动距离超过 2px 才记录，避免密集点
+    if (!last || Math.hypot(last.x - currentPos.x, last.y - currentPos.y) > 2) {
+      pathHistory.value.push({x: currentPos.x, y: currentPos.y});
+      if (pathHistory.value.length > CONFIG.MAX_TRAIL) {
+        pathHistory.value.shift();
+      }
     }
   }
 };
 
-// 轨迹绘制（优化视觉效果）
+// 绘制轨迹
 const drawTrajectory = () => {
   if (!canvasRef.value || !showTrajectory.value || pathHistory.value.length < 2) return;
+  
+  const container = containerRef.value;
+  if(!container) return;
   
   const dpr = window.devicePixelRatio || 1;
   const ctx = canvasRef.value.getContext('2d');
   if (!ctx) return;
 
-  // 清屏（适配DPR）
-  ctx.clearRect(0, 0, mapWidth * dpr, mapHeight * dpr);
-  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 
-  // 绘制轨迹（渐变透明度）
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
 
   const totalPoints = pathHistory.value.length;
   for (let i = 0; i < totalPoints - 1; i++) {
     const pt1 = pathHistory.value[i];
     const pt2 = pathHistory.value[i + 1];
-    const alpha = (i / totalPoints) * 0.8 + 0.2; // 透明度范围0.2-1.0
     
     ctx.beginPath();
     ctx.moveTo(pt1.x, pt1.y);
     ctx.lineTo(pt2.x, pt2.y);
+    
+    // 渐变色
+    const alpha = (i / totalPoints);
     ctx.strokeStyle = `rgba(34, 211, 238, ${alpha})`; 
     ctx.stroke();
   }
-  
-  // 绘制轨迹终点标记
-  if (totalPoints > 0) {
-    const head = pathHistory.value[totalPoints - 1];
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, 2, 0, Math.PI * 2);
-    ctx.fillStyle = '#22d3ee';
-    ctx.fill();
-  }
 };
 
-// 动画循环（优化FPS计算）
 const animate = (time: number) => {
   if (!isRunning.value) return;
-  
-  // 计算FPS
   if (lastTime) {
     const delta = time - lastTime;
     fps.value = Math.round(1000 / delta);
   }
   lastTime = time;
 
-  // 更新物理和绘制
   updatePhysics();
   drawTrajectory();
   
-  // 循环调用
   animationFrameId = requestAnimationFrame(animate);
 };
 
 // ======================= 6. 控制逻辑 =======================
-// 启动定位模拟
 const startSimulation = () => {
   if (isRunning.value || !isReady.value || isHistoryMode.value) return;
   isRunning.value = true;
@@ -748,7 +617,6 @@ const startSimulation = () => {
   ElMessage.success('定位模拟已启动');
 };
 
-// 暂停模拟
 const stopSimulation = () => {
   if (!isRunning.value) return;
   isRunning.value = false;
@@ -756,49 +624,34 @@ const stopSimulation = () => {
   ElMessage.info('定位模拟已暂停');
 };
 
-// 重置模拟/退出回放
 const resetSimulation = () => {
   stopSimulation();
-  
-  // 清空轨迹
   pathHistory.value = [];
-  const dpr = window.devicePixelRatio || 1;
   const ctx = canvasRef.value?.getContext('2d');
-  if (ctx) {
-    ctx.clearRect(0, 0, mapWidth * dpr, mapHeight * dpr);
-  }
+  const container = containerRef.value;
+  if (ctx && container) ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 
-  // 退出历史回放模式
   if (isHistoryMode.value) {
     isHistoryMode.value = false;
-    findSafeStartPos();
     ElMessage.info('已退出历史回放模式');
-  } else {
-    findSafeStartPos();
-    ElMessage.info('定位模拟已重置');
   }
+  
+  // 回到中心
+  currentPos.x = (boundary.minX + boundary.maxX) / 2;
+  currentPos.y = (boundary.minY + boundary.maxY) / 2;
 };
 
-// 显示/隐藏轨迹
 const toggleTrajectory = () => {
   showTrajectory.value = !showTrajectory.value;
-  
-  // 隐藏时清空轨迹绘制
-  if (!showTrajectory.value && canvasRef.value) {
-    const dpr = window.devicePixelRatio || 1;
+  if (!showTrajectory.value && canvasRef.value && containerRef.value) {
     const ctx = canvasRef.value.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, mapWidth * dpr, mapHeight * dpr);
-    }
-  } else if (showTrajectory.value) {
-    drawTrajectory(); // 重新绘制
+    if (ctx) ctx.clearRect(0, 0, containerRef.value.clientWidth, containerRef.value.clientHeight);
+  } else {
+    drawTrajectory();
   }
-  
-  ElMessage.info(showTrajectory.value ? '轨迹已显示' : '轨迹已隐藏');
 };
 
-// ======================= 7. 历史回放逻辑 =======================
-// 打开历史回放对话框
+// ======================= 7. 历史回放逻辑 (生成有效区域内的轨迹) =======================
 const openHistoryDialog = () => {
   if (isRunning.value) {
     ElMessage.warning('请先暂停定位模拟再查看历史轨迹');
@@ -807,72 +660,71 @@ const openHistoryDialog = () => {
   historyDialogVisible.value = true;
 };
 
-// 确认加载历史轨迹
 const confirmHistoryView = () => {
   historyDialogVisible.value = false;
   isHistoryMode.value = true;
-  
-  // 清空原有轨迹
   pathHistory.value = [];
-  const dpr = window.devicePixelRatio || 1;
-  const ctx = canvasRef.value?.getContext('2d');
-  if (ctx) {
-    ctx.clearRect(0, 0, mapWidth * dpr, mapHeight * dpr);
-  }
-
-  // 模拟生成历史轨迹
-  const stats = getHistoryStats.value;
-  let cx = mapWidth * 0.5;
-  let cy = mapHeight * 0.5;
-  let angle = 0;
   
-  for(let i=0; i<stats.points; i++) {
-    angle += (Math.random() - 0.5) * 1.5;
-    const nx = cx + Math.cos(angle) * 5;
-    const ny = cy + Math.sin(angle) * 5;
+  const ctx = canvasRef.value?.getContext('2d');
+  const container = containerRef.value;
+  if (ctx && container) ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
+
+  // 1. 在边界内随机找个起点
+  let simX = boundary.minX + Math.random() * (boundary.maxX - boundary.minX);
+  let simY = boundary.minY + Math.random() * (boundary.maxY - boundary.minY);
+  let simAngle = Math.random() * Math.PI * 2;
+  
+  const stats = getHistoryStats.value;
+  const pointsToGen = Math.min(stats.points, 1000); 
+
+  // 2. 模拟运动并记录
+  for(let i = 0; i < pointsToGen; i++) {
+    simAngle += (Math.random() - 0.5) * 0.5;
     
-    if (!isWall(nx, ny)) {
-      cx = nx;
-      cy = ny;
-      pathHistory.value.push({x: cx, y: cy});
-    } else {
-      angle += Math.PI;
+    let nextX = simX + Math.cos(simAngle) * 5;
+    let nextY = simY + Math.sin(simAngle) * 5;
+
+    // 简单的边界检查
+    if (nextX < boundary.minX || nextX > boundary.maxX) {
+      nextX = Math.max(boundary.minX, Math.min(nextX, boundary.maxX));
+      simAngle = Math.PI - simAngle;
     }
+    if (nextY < boundary.minY || nextY > boundary.maxY) {
+      nextY = Math.max(boundary.minY, Math.min(nextY, boundary.maxY));
+      simAngle = -simAngle;
+    }
+    
+    simX = nextX;
+    simY = nextY;
+    pathHistory.value.push({x: simX, y: simY});
   }
 
-  // 绘制历史轨迹
+  // 将小人移动到轨迹终点
+  if (pathHistory.value.length > 0) {
+    const last = pathHistory.value[pathHistory.value.length - 1];
+    currentPos.x = last.x;
+    currentPos.y = last.y;
+  }
+
   drawTrajectory();
-  ElMessage.success(`已加载近${historyRangeLabel.value}的历史轨迹（共${stats.points}个数据点）`);
+  ElMessage.success(`已加载近${historyRangeLabel.value}的历史轨迹`);
 };
 
 // ======================= 8. 管理端逻辑 =======================
-// 管理端Tab切换
 const activeAdminTab = ref('users');
 
-// 模拟用户数据
 const mockUsers = ref([
   { id: 1001, name: '张三', status: 'online', lastActive: '2026-01-05 14:30:00', device: 'UWB-TAG-01', role: 'user' },
   { id: 1002, name: '李四', status: 'offline', lastActive: '2026-01-04 18:00:00', device: 'UWB-TAG-02', role: 'user' },
   { id: 1003, name: '系统管理员', status: 'online', lastActive: '2026-01-05 15:00:00', device: 'PC-CONSOLE', role: 'admin' },
 ]);
 
-// 模拟地图文件列表
 const mapFiles = ref([
   { name: 'map.dxf', size: '3.2 MB', date: '2026-01-06 10:20:30' }, 
-  { name: 'Basement_Structure.dwg', size: '5.1 MB', date: '2025-12-28 15:45:12' },
   { name: 'office_layout.svg', size: '1.8 MB', date: '2026-01-05 09:10:05' },
 ]);
 
-// 用户表单
-const userForm = reactive({
-  id: 0,
-  name: '',
-  device: '',
-  role: 'user',
-  status: 'offline'
-});
-
-// 管理端对话框状态
+const userForm = reactive({ id: 0, name: '', device: '', role: 'user', status: 'offline' });
 const dialogVisible = ref(false);
 const historyVisible = ref(false);
 const dialogTitle = ref('新增用户');
@@ -880,7 +732,6 @@ const currentUser = ref<any>(null);
 const searchQuery = ref('');
 const filterStatus = ref('');
 
-// 筛选用户
 const filteredUsers = computed(() => {
   return mockUsers.value.filter(user => {
     const matchName = user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
@@ -890,30 +741,26 @@ const filteredUsers = computed(() => {
   });
 });
 
-// 切换管理端/个人端
 const switchMode = () => {
   isAdmin.value = !isAdmin.value;
-  
-  // 切换时重置状态
   if (isAdmin.value) {
     stopSimulation();
   } else {
-    nextTick(() => {
-      initCollisionMap(); // 重新初始化地图
-    });
+    // 切换回个人端，重新初始化边界
+    mapLoaded.value = false;
+    setTimeout(() => {
+      loadMapFromFile();
+    }, 100);
   }
-  
   ElMessage.success(`已切换到${isAdmin.value ? '管理员控制台' : '个人定位终端'}`);
 };
 
-// 新增用户
 const handleAddUser = () => {
   dialogTitle.value = '新增用户';
   Object.assign(userForm, { id: 0, name: '', device: '', role: 'user', status: 'offline' });
   dialogVisible.value = true;
 };
 
-// 编辑用户
 const handleEditUser = (row: any) => {
   dialogTitle.value = '编辑用户';
   Object.assign(userForm, { ...row });
@@ -921,87 +768,55 @@ const handleEditUser = (row: any) => {
   dialogVisible.value = true;
 };
 
-// 删除用户
 const handleDeleteUser = (row: any) => {
   ElMessageBox.confirm(
-    `确定要删除用户【${row.name}】吗？此操作不可恢复！`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-      // dangerMode: true, // <--- 删除这一行
-      confirmButtonClass: 'el-button--danger' // <--- 添加这一行（可选，使按钮变红）
-    }
+    `确定要删除用户【${row.name}】吗？`, '警告',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', confirmButtonClass: 'el-button--danger' }
   ).then(() => {
-    // ... 原有逻辑保持不变
     const idx = mockUsers.value.findIndex(u => u.id === row.id);
-    if (idx > -1) {
-      mockUsers.value.splice(idx, 1);
-      ElMessage.success(`用户【${row.name}】已删除`);
-    }
-  }).catch(() => {
-    ElMessage.info('已取消删除操作');
+    if (idx > -1) mockUsers.value.splice(idx, 1);
+    ElMessage.success(`用户【${row.name}】已删除`);
   });
 };
 
-
-// 保存用户
 const saveUser = () => {
-  if (!userForm.name) {
-    ElMessage.warning('请输入用户名');
-    return;
-  }
-  
+  if (!userForm.name) return ElMessage.warning('请输入用户名');
   if (userForm.id === 0) {
-    // 新增
     const newUser = {
       id: Date.now(),
       name: userForm.name,
-      device: userForm.device || `UWB-TAG-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+      device: userForm.device || 'UWB-TAG-NEW',
       role: userForm.role,
       status: 'offline',
       lastActive: '未激活'
     };
     mockUsers.value.push(newUser);
-    ElMessage.success(`用户【${userForm.name}】已创建`);
   } else {
-    // 编辑
     const idx = mockUsers.value.findIndex(u => u.id === userForm.id);
-    if (idx > -1) {
-      mockUsers.value[idx] = { ...mockUsers.value[idx], ...userForm };
-      ElMessage.success(`用户【${userForm.name}】已更新`);
-    }
+    if (idx > -1) mockUsers.value[idx] = { ...mockUsers.value[idx], ...userForm };
   }
-  
   dialogVisible.value = false;
 };
 
-// 查看用户历史轨迹
 const viewHistory = (row: any) => {
   currentUser.value = row;
   historyVisible.value = true;
 };
 
-// 处理文件上传
 const handleFileChange = (file: any) => {
-  ElMessage.info(`文件【${file.name}】已选择，大小：${(file.size / 1024 / 1024).toFixed(2)} MB`);
+  ElMessage.info(`文件【${file.name}】已选择`);
 };
 
-// ======================= 9. 生命周期钩子 =======================
+// ======================= 9. 生命周期 =======================
 onMounted(() => {
-  // 加载地图
   loadMapFromFile();
 
-  // 监听容器大小变化
   if (containerRef.value) {
     resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.contentRect.width > 0 && entry.contentRect.height > 0 && !isAdmin.value) {
+        if (entry.contentRect.width > 0 && !isAdmin.value) {
           stopSimulation();
-          nextTick(() => {
-            initCollisionMap(); // 重新初始化碰撞地图
-          });
+          nextTick(() => initBoundaries());
         }
       }
     });
@@ -1010,63 +825,64 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  // 清理资源
   stopSimulation();
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-  }
-  if (containerRef.value) {
-    resizeObserver?.unobserve(containerRef.value);
-  }
+  if (resizeObserver) resizeObserver.disconnect();
 });
 </script>
 
 <style scoped>
-/* 核心样式优化 - 地图视觉提升 */
+/* 网格背景 */
 .bg-grid {
   background-image: linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-/* 地图淡入动画 */
+/* 动画 */
 .map-fade-in {
   animation: fadeIn 0.8s ease-out forwards;
   opacity: 0;
 }
-
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
 
-/* SVG渲染优化 - 适配深色背景 */
+/* SVG 滤镜 - 高对比度深色模式 */
 :deep(.inner-svg-wrapper svg) {
   width: 100%;
   height: 100%;
   display: block;
-  filter: invert(0.9) hue-rotate(180deg) saturate(0.8) brightness(0.9);
+  /* 将黑色线条转为亮色，适应深色背景 */
+  filter: invert(0.9) hue-rotate(180deg) saturate(1.5) brightness(0.8) contrast(1.2);
   transition: filter 0.3s ease;
 }
 
-/* 管理端地图样式 */
+/* 管理端地图 */
 :deep(.admin-map-container) {
   opacity: 0.6;
-  transition: opacity 0.3s ease;
-}
-:deep(.admin-map-container:hover) {
-  opacity: 0.8;
 }
 :deep(.admin-svg-style svg) {
-  filter: invert(0.95) hue-rotate(180deg) saturate(0.7) brightness(0.85);
+  filter: invert(0.95) hue-rotate(180deg) saturate(0.5) brightness(0.7);
 }
 
-/* 动态定位点动画优化 */
+/* 小人波纹动画 */
 :deep(.animate-ping) {
-  animation-duration: 2s;
+  animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
-/* Element Plus 组件样式覆盖 */
+.will-change-transform {
+  will-change: transform;
+  transition: transform 0.05s linear; /* 线性过渡，确保平滑 */
+}
+
+/* Element Plus 覆盖 */
 :deep(.el-table) {
   --el-table-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
@@ -1079,71 +895,19 @@ onUnmounted(() => {
 :deep(.el-table__inner-wrapper::before) { 
   background-color: #334155; 
 }
-
 :deep(.glass-dialog) {
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
-:deep(.glass-dialog .el-dialog__title) {
-  color: #f1f5f9;
-}
-:deep(.glass-dialog .el-dialog__body) {
-  color: #cbd5e1;
-}
-
-:deep(.el-tabs__item) {
-  color: #94a3b8;
-}
-:deep(.el-tabs__item.is-active) {
-  color: #38bdf8;
-}
-:deep(.el-tabs__nav-wrap::after) {
-  background-color: #334155;
-}
-
-:deep(.el-upload-dragger) {
-  background-color: transparent;
-  border-color: #475569;
-}
-:deep(.el-upload-dragger:hover) {
-  border-color: #38bdf8;
-  background-color: rgba(56, 189, 248, 0.05);
-}
-
-:deep(.el-radio-button__inner) {
-  background: transparent;
-  border-color: #475569;
-  color: #94a3b8;
-}
+:deep(.glass-dialog .el-dialog__title) { color: #f1f5f9; }
+:deep(.glass-dialog .el-dialog__body) { color: #cbd5e1; }
+:deep(.el-tabs__item.is-active) { color: #38bdf8; }
+:deep(.el-tabs__nav-wrap::after) { background-color: #334155; }
+:deep(.el-upload-dragger) { background: transparent; border-color: #475569; }
+:deep(.el-radio-button__inner) { background: transparent; border-color: #475569; color: #94a3b8; }
 :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  background-color: #0ea5e9;
-  border-color: #0ea5e9;
-  color: white;
-  box-shadow: -1px 0 0 0 #0ea5e9;
-}
-
-/* 自定义滚动条 */
-:deep(.el-scrollbar__bar) {
-  background-color: rgba(148, 163, 184, 0.2);
-}
-:deep(.el-scrollbar__thumb) {
-  background-color: rgba(56, 189, 248, 0.5);
-}
-
-/* 整体布局样式 */
-.h-full {
-  height: 100%;
-}
-.min-h-0 {
-  min-height: 0;
-}
-.min-h-\[60vh\] {
-  min-height: 60vh;
-}
-.will-change-transform {
-  will-change: transform;
+  background-color: #0ea5e9; border-color: #0ea5e9; color: white;
 }
 </style>

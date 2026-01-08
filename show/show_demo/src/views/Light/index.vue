@@ -191,7 +191,7 @@
 
       <!-- 底部 -->
       <div class="mt-12 text-center text-slate-500 text-sm">
-        光纤传感预警系统 v1.0 • © 2024 工业安全智能平台 • {{ currentDate }}
+        工业智能平台 v2.1.0 • © 2024 安庆石化 • 数据更新时间: {{ currentDate }}
       </div>
 
       </div>
