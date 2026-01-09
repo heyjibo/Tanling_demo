@@ -1,4 +1,18 @@
 <template>
+    <div class="mb-6">
+      <button 
+        @click="$emit('back')"
+        class="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors group"
+      >
+        <svg class="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        返回主页
+      </button>
+    </div>
+  <!-- 第一步：用 GlassCard 包裹核心内容，可自定义 title 属性 -->
+  <GlassCard title="">
+
   <!-- 外层容器：确保占满父容器高度，使用 Tailwind 类 -->
   <div class="h-full min-h-[calc(100vh-100px)] w-full bg-white text-slate-800 font-sans selection:bg-blue-100 overflow-auto">
     
@@ -60,7 +74,7 @@
       
       <!-- 统计栏 -->
       <div class="bg-gray-50 px-4 py-2 flex justify-end items-center gap-3 text-sm border-b">
-        <span class="text-gray-500 mr-4">总行数: 111</span>
+        <span class="text-gray-500 mr-4">总行数: 5</span>
         <el-button size="small">导出 Excel</el-button>
         <el-button type="danger" size="small" class="!bg-[#f56c6c] border-none">批量重算</el-button>
         <el-button size="small">刷新数据</el-button>
@@ -271,11 +285,14 @@
     </div>
 
   </div>
+  </GlassCard> <!-- 闭合 GlassCard 组件 -->
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 import { Search } from '@element-plus/icons-vue';
+// 第二步：导入 GlassCard 组件（路径与你的项目保持一致）
+import GlassCard from '@/components/Common/GlassCard.vue';
 
 /**
  * 状态管理
@@ -393,7 +410,6 @@ const pipeDB = ref([
   { id: 10, imperial: '2.5"', dn: 'DN65', outer: 76 },
   { id: 11, imperial: '3"', dn: 'DN80', outer: 89 },
 ]);
-
 </script>
 
 <style scoped>

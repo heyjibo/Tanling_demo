@@ -1,5 +1,16 @@
 <template>
-  <GlassCard title="a) 工业物联网底座 (连云港一期)">
+      <div class="mb-6">
+      <button 
+        @click="$emit('back')"
+        class="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors group"
+      >
+        <svg class="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        返回主页
+      </button>
+    </div>
+  <GlassCard title="">
     <div class="iot-main-page">
       <!-- 侧边栏 -->
       <div class="iot-sidebar">
