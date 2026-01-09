@@ -3,3 +3,372 @@
 @tailwind utilities;
 
 body { margin: 0; padding: 0; background-color: #0f172a; }
+
+.iot-main-page {
+    display: flex;
+    height: 84vh;
+}
+
+.iot-sidebar {
+    width: 12%;
+    background-color: #ffffff;
+    color: #000000;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.iot-sidebar-btn {
+    width: 100%;
+    font-size: 0.7rem;
+    margin-bottom: 15px;
+    padding: 1rem;
+    background-color: #ffffff;
+    color: #303030;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    box-shadow: 1px 2px 4px  rgba(0, 0, 0, 0.1); /* 添加轻微阴影，使按钮更具层次感 */
+}
+
+/* 背景图部分 */
+.iot-map-container {
+    width: 88%;
+    flex: 1;
+    padding-left: 5px;
+    background-color: #f8f8f8;
+    position: relative;
+    /*box-sizing: border-box;*/
+    display: flex; /* 使用 flex 布局 */
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2); /* 添加模糊边缘效果 */
+}
+
+.iot-background-map {
+    height: 84vh;
+    /*width: 100%;*/
+    /*height: auto;*/
+    /*object-fit: fill;*/
+    /*display: block; !* 清除任何潜在的内联元素的留白 *!*/
+}
+
+/* 顶部横幅部分 */
+.iot-header-banner {
+    position: absolute; /* 绝对定位，确保横幅部分在地图顶部 */
+    top: 0px;
+    left: 0;
+    right: 0;
+    height: 5%; /* 横幅高度 */
+    background: url('../images/iot/标题背景.png') no-repeat center; /* 使用背景图片 */
+    background-size: cover; /* 确保背景图片填充整个横幅 */
+    display: flex;
+    align-items: center; /* 垂直居中对齐 */
+    justify-content: center; /* 水平居中对齐 */
+    color: #ffffff; /* 文本颜色为白色 */
+    font-size: 1rem; /* 文本字号 */
+    z-index: 20; /* 确保横幅显示在最前面 */
+}
+
+/* 管道部分 */
+.start{
+    height: 27px;
+    width: 27px;
+    top:45%;
+    left: 1.5%;
+    position: absolute;
+    z-index: 2;
+}
+.interface1{
+    height: 15px;
+    width: 15px;
+    top:46%;
+    left: 3%;
+    z-index: 1;
+    position: absolute;
+}
+.turn1{
+    height: 16px;
+    width: 16px;
+    top:46.3%;
+    left: 3.5%;
+    position: absolute;
+    transform: rotate(20deg);
+}
+.tube1{
+    height: 10px;
+    width: 1.8%;
+    top:49%;
+    left: 3.1%;
+    position: absolute;
+    transform: rotate(100deg);
+    z-index: 1;
+}
+.turn2{
+    height: 16px;
+    width: 2%;
+    top:51%;
+    left: 3.5%;
+    position: absolute;
+    transform: rotate(175deg);
+}
+.tube2{
+    height: 10px;
+    width: 12%;
+    top: 51%;
+    left: 4.95%;
+    position: absolute;
+    transform: rotate(176deg);
+    z-index: 1;
+}
+.tube3{
+    height: 10px;
+    width: 16%;
+    top: 50.3%;
+    left: 16.9%;
+    position: absolute;
+    transform: rotate(180.2deg);
+    z-index: 1;
+}
+.interface2{
+    height: 15px;
+    width: 15px;
+    top: 50.1%;
+    left: 32.2%;
+    z-index: 1;
+    position: absolute;
+    z-index: 2;
+}
+.tube4{
+    height: 10px;
+    width: 20%;
+    top: 50.2%;
+    left: 33%;
+    position: absolute;
+    transform: rotate(179deg);
+    z-index: 1;
+}
+.turn3{
+    height: 16px;
+    width: 16px;
+    top:49.9%;
+    left: 52.8%;
+    position: absolute;
+    transform: rotate(0deg);
+}
+.turn4{
+    height: 15px;
+    width: 15px;
+    top:51.1%;
+    left: 53.3%;
+    position: absolute;
+    transform: rotate(180deg);
+    z-index: 3;
+}
+.tube5{
+    height: 9px;
+    width: 10%;
+    top: 51.95%;
+    left: 54.1%;
+    position: absolute;
+    transform: rotate(181deg);
+}
+.interface3{
+    height: 15px;
+    width: 15px;
+    top: 51.7%;
+    left: 63.4%;
+    z-index: 1;
+    position: absolute;
+    z-index: 2;
+}
+.tube6{
+    height: 9px;
+    width: 22%;
+    top: 51%;
+    left: 64%;
+    position: absolute;
+    transform: rotate(176.5deg);
+}
+.turn5{
+    height: 16px;
+    width: 16px;
+    top: 49.7%;
+    left: 85.5%;
+    position: absolute;
+    transform: rotate(-15deg);
+    z-index: 3;
+}
+.tube7{
+    height: 9px;
+    width: 5%;
+    top: 55.2%;
+    left: 84.5%;
+    position: absolute;
+    transform: rotate(50deg);
+}
+.turn6{
+    height: 16px;
+    width: 16px;
+    top: 60%;
+    left: 91.4%;
+    position: absolute;
+    transform: rotate(155deg);
+    z-index: 3;
+}
+.tube8{
+    height: 9px;
+    width: 8%;
+    top: 55.2%;
+    left: 85%;
+    position: absolute;
+    transform: rotate(47deg);
+}
+.tube9{
+    height: 9px;
+    width: 60px;
+    top: 60.2%;
+    left: 92.3%;
+    position: absolute;
+    transform: rotate(-2deg);
+}
+.end{
+    height: 27px;
+    width: 18px;
+    top:59%;
+    left: 96%;
+    position: absolute;
+    z-index: 2;
+}
+.line1{
+    position: absolute;
+    width: 8%;
+    height: 5px;
+    background-color: aqua;
+    top: 58.5%;
+    left: 0.1%;
+    z-index: 120;
+    border-radius: 2px;
+    transform: rotate(90deg);
+}
+.line2{
+    position: absolute;
+    width: 4%;
+    height: 5px;
+    background-color: aqua;
+    top: 47.9%;
+    left: 6.2%;
+    z-index: 120;
+    border-radius: 2px;
+    transform: rotate(90deg);
+}
+.line3{
+    position: absolute;
+    width:24%;
+    height: 5px;
+    background-color: aqua;
+    top: 45%;
+    left: 8%;
+    z-index: 120;
+    border-radius: 2px;
+}
+.line4{
+    position: absolute;
+    width:6.7%;
+    height: 5px;
+    background-color: aqua;
+    top: 39.5%;
+    left: 28.7%;
+    z-index: 120;
+    border-radius: 2px;
+    transform: rotate(90deg);
+}
+.line5{
+    position: absolute;
+    width: 2.3%;
+    height: 5px;
+    background-color: aqua;
+    top: 48.5%;
+    left: 12%;
+    z-index: 120;
+    border-radius: 2px;
+    transform: rotate(90deg);
+}
+.line6{
+    position: absolute;
+    width: 53.3%;
+    height: 5px;
+    background-color: aqua;
+    top: 47%;
+    left: 13%;
+    z-index: 120;
+    border-radius: 2px;
+}
+.line7{
+    position: absolute;
+    width: 7.7%;
+    height: 5px;
+    background-color: aqua;
+    top: 40.5%;
+    left: 62.4%;
+    z-index: 120;
+    border-radius: 2px;
+    transform: rotate(90deg);
+}
+.line8{
+    position: absolute;
+    width: 8.5%;
+    height: 5px;
+    background-color: aqua;
+    top: 58%;
+    left: 81.5%;
+    z-index: 120;
+    border-radius: 2px;
+    transform: rotate(90deg);
+}
+.tubetype1{
+    position: absolute;
+    height: 4vh;
+    line-height: 4vh;
+    width: 7vh;
+    background-color: khaki;
+    color:rgb(210, 30, 30);
+    top: 54%;
+    left: 43%;
+    border-radius: 3px;
+    box-shadow: 1px 3px 5px  rgba(0, 0, 0, 0.3);
+    text-align: center;
+    font-size: 13px;
+}
+.tubetype2{
+    position: absolute;
+    height: 4vh;
+    line-height: 4vh;
+    width: 7vh;
+    background-color: khaki;
+    color:chocolate;
+    top: 52%;
+    left: 92%;
+    border-radius: 3px;
+    box-shadow: 1px 3px 5px  rgba(0, 0, 0, 0.3);
+    text-align: center;
+    font-size: 13px;
+}
+.iot-title-container {
+    display: flex;
+    align-items: center;
+}
+
+.iot-input-container {
+    display: flex;
+    align-items: center;
+}
+
+.iot-title-input {
+    width: 250px;
+}
+
+.iot-button-container {
+    display: flex;
+    align-items: center;
+    margin-left: 8px; /* 调整间距 */
+}
