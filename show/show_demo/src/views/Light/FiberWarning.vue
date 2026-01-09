@@ -176,6 +176,27 @@
           <div v-if="alarmList.length === 0" class="empty-alarm">暂无告警</div>
         </div>
       </div>
+      <!-- 温度异常处理弹窗 -->
+      <el-dialog
+        v-model="dialogVisible"
+        title="温度异常处理"
+        width="400px"
+        :close-on-click-modal="false"
+      >
+        <div v-if="currentHandleAlarm" class="alarm-handle-content">
+          <p>告警位置：{{ currentHandleAlarm.position }}</p>
+          <p>当前温度：{{ currentHandleAlarm.value }}℃</p>
+          <p class="mt-2">请选择处理方式：</p>
+          <el-radio-group v-model="handleType" class="mt-2">
+            <el-radio-button label="保温">保温</el-radio-button>
+            <el-radio-button label="保冷">保冷</el-radio-button>
+          </el-radio-group>
+        </div>
+        <template #footer>
+          <el-button @click="cancelHandleAlarm">取消</el-button>
+          <el-button type="primary" @click="confirmHandleAlarm" :disabled="!handleType">确认处理</el-button>
+        </template>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -189,6 +210,8 @@ import { ElMessage } from 'element-plus';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+//弹窗逻辑
+import { ElDialog, ElRadioGroup, ElRadioButton, ElButton } from 'element-plus';
 
 /* ===============================
    配置与类型定义
@@ -299,6 +322,10 @@ let subChart: echarts.ECharts;
 const updateTime = ref('');
 const totalMonitorPoints = computed(() => FIBER_COUNT * POINT_COUNT);
 const currentAlarmCount = computed(() => alarmList.value.length);
+// 告警处理弹窗相关
+const dialogVisible = ref(false);
+const currentHandleAlarm = ref<AlarmItem | null>(null);
+const handleType = ref(''); // 保温/保冷
 // 定义响应延迟的正常范围（可根据业务调整，比如 60-100ms）
 const RESPONSE_DELAY_MIN = 60;
 const RESPONSE_DELAY_MAX = 100;
@@ -802,10 +829,44 @@ function hideHoverPoint() {
   hover.value.visible = false;
 }
 
-// 告警处理
 function handleAlarm(alarmId: number) {
-  alarmList.value = alarmList.value.filter(item => item.id !== alarmId);
-  ElMessage.success('告警已处理');
+  // 找到当前要处理的告警
+  const alarm = alarmList.value.find(item => item.id === alarmId);
+  if (alarm && alarm.type === '温差异常') { // 仅温度异常触发弹窗
+    currentHandleAlarm.value = alarm;
+    // 根据温度值判断默认处理类型
+    const tempThreshold = THRESHOLDS.temperature;
+    if (alarm.value < tempThreshold.min + (tempThreshold.max - tempThreshold.min) / 2) {
+      handleType.value = '保温';
+    } else {
+      handleType.value = '保冷';
+    }
+    dialogVisible.value = true;
+  } else {
+    // 非温度异常直接移除
+    alarmList.value = alarmList.value.filter(item => item.id !== alarmId);
+    ElMessage.success('告警已处理');
+  }
+}
+
+// 弹窗确认处理方法
+function confirmHandleAlarm() {
+  if (!currentHandleAlarm.value) return;
+  // 移除告警
+  alarmList.value = alarmList.value.filter(item => item.id !== currentHandleAlarm.value!.id);
+  // 提示处理结果
+  ElMessage.success(`已对【${currentHandleAlarm.value.position}】执行${handleType.value}处理`);
+  // 关闭弹窗
+  dialogVisible.value = false;
+  currentHandleAlarm.value = null;
+  handleType.value = '';
+}
+
+// 取消弹窗
+function cancelHandleAlarm() {
+  dialogVisible.value = false;
+  currentHandleAlarm.value = null;
+  handleType.value = '';
 }
 
 function clearAlarms() {
@@ -1413,5 +1474,38 @@ watch(activeDimension, () => {
   position: relative;
   overflow: hidden;
   background-color: #1e293b;
+}
+.alarm-handle-content {
+  color: #e2e8f0;
+  font-size: 14px;
+}
+.alarm-handle-content p {
+  margin: 8px 0;
+}
+:deep(.el-radio-button__inner) {
+  background-color: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+:deep(.el-radio-button__inner:hover) {
+  color: #fff;
+}
+:deep(.el-radio-button.is-active .el-radio-button__inner) {
+  background-color: #7c3aed;
+  border-color: #7c3aed;
+  color: #fff;
+}
+:deep(.el-dialog) {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+}
+:deep(.el-dialog__header) {
+  border-bottom: 1px solid #334155;
+}
+:deep(.el-dialog__title) {
+  color: #e2e8f0;
+}
+:deep(.el-dialog__footer) {
+  border-top: 1px solid #334155;
 }
 </style>
