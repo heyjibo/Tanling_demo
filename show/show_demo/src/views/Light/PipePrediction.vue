@@ -199,161 +199,167 @@ const maintenancePriorityColor = computed(() => {
   }
 })
 
-// ================= ECharts 初始化 =================
-const trendRef = ref<HTMLDivElement>(null)
-const lifeRef = ref<HTMLDivElement>(null)
-const correlationRef = ref<HTMLDivElement>(null)
-const priorityRef = ref<HTMLDivElement>(null)
+// ================= ECharts 初始化 =================//
+const trendRef = ref<HTMLDivElement | null>(null)
+const lifeRef = ref<HTMLDivElement | null>(null)
+const correlationRef = ref<HTMLDivElement | null>(null)
+const priorityRef = ref<HTMLDivElement | null>(null)
 
 onMounted(() => {
   // 1. 管损趋势演化分析图表
-  const trendChart = echarts.init(trendRef.value!)
-  trendChart.setOption({
-    title: { text: '综合管损趋势（历史 + 预测）', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
-    legend: { top: 30, textStyle: { color: '#cbd5f5' } },
-    grid: { top: 70, left: 50, right: 40, bottom: 20 },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', name: '时间', data: [...historyData, ...predictData].map(d => d.time) },
-    yAxis: { type: 'value', name: '管损指数', max: 300 },
-    series: [
-      {
-        name: '管损指数',
-        type: 'line',
-        smooth: true,
-        data: [...historyData.map(d => d.value), ...predictData.map(d => d.value)],
-        areaStyle: { opacity: 0.15 },
-        lineStyle: { color: '#3b82f6' },
-        itemStyle: { color: '#3b82f6' },
-        markArea: {
-          itemStyle: { color: 'rgba(250,204,21,0.15)' },
-          data: [[{ xAxis: predictData[0].time }, { xAxis: predictData.at(-1)!.time }]]
-        },
-        markLine: {
-          data: [{ type: 'average', name: '平均值' }],
-          lineStyle: { color: '#94a3b8', type: 'dashed' }
+  if (trendRef.value) {
+    const trendChart = echarts.init(trendRef.value)
+    trendChart.setOption({
+      title: { text: '综合管损趋势（历史 + 预测）', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
+      legend: { top: 30, textStyle: { color: '#cbd5f5' } },
+      grid: { top: 70, left: 50, right: 40, bottom: 20 },
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', name: '时间', data: [...historyData, ...predictData].map(d => d.time) },
+      yAxis: { type: 'value', name: '管损指数', max: 300 },
+      series: [
+        {
+          name: '管损指数',
+          type: 'line',
+          smooth: true,
+          data: [...historyData.map(d => d.value), ...predictData.map(d => d.value)],
+          areaStyle: { opacity: 0.15 },
+          lineStyle: { color: '#3b82f6' },
+          itemStyle: { color: '#3b82f6' },
+          markArea: {
+            itemStyle: { color: 'rgba(250,204,21,0.15)' },
+            data: [[{ xAxis: predictData[0].time }, { xAxis: predictData.at(-1)!.time }]]
+          },
+          markLine: {
+            data: [{ type: 'average', name: '平均值' }],
+            lineStyle: { color: '#94a3b8', type: 'dashed' }
+          }
         }
-      }
-    ],
-    backgroundColor: 'transparent'
-  })
-
-  // 2. 剩余寿命预测曲线
-  const lifeChart = echarts.init(lifeRef.value!)
-  // 寿命预测数据：未来12个月的剩余寿命
-  const lifePredictData = Array.from({ length: 12 }, (_, i) => {
-    const currentDamage = historyData.at(-1)!.value + i * 2.5
-    const powerAttenuation = fiberWarningData.at(-1)!.powerAttenuation + i * 0.4
-    return calculateRemainingLife(currentDamage, powerAttenuation).life
-  })
-  const lifeTimeData = Array.from({ length: 12 }, (_, i) => `${i + 1}月后`)
-  
-  lifeChart.setOption({
-    title: { text: '剩余寿命衰减预测', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
-    grid: { top: 70, left: 50, right: 40, bottom: 20 },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: lifeTimeData },
-    yAxis: { type: 'value', name: '剩余寿命(月)', min: 0 },
-    series: [
-      {
-        name: '剩余寿命',
-        type: 'line',
-        smooth: true,
-        data: lifePredictData,
-        areaStyle: { opacity: 0.15, color: '#10b981' },
-        lineStyle: { color: '#10b981' },
-        itemStyle: { color: '#10b981' },
-        markPoint: {
-          data: [{ name: '临界值', value: '5个月', xAxis: 8, yAxis: 5 }],
-          itemStyle: { color: '#ef4444' }
-        }
-      }
-    ],
-    backgroundColor: 'transparent'
-  })
-
-  // 3. 光纤预警与管损相关性分析
-  const correlationChart = echarts.init(correlationRef.value!)
-  correlationChart.setOption({
-    title: { text: '光纤预警-管损相关性', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
-    grid: { top: 70, left: 50, right: 40, bottom: 20 },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: fiberWarningData.map(d => d.time) },
-    yAxis: [
-      { type: 'value', name: '管损指数', max: 120, axisLine: { lineStyle: { color: '#3b82f6' } } },
-      { type: 'value', name: '光功率衰减(dB)', max: 10, axisLine: { lineStyle: { color: '#f59e0b' } } }
-    ],
-    series: [
-      {
-        name: '管损指数',
-        type: 'line',
-        smooth: true,
-        data: historyData.map(d => d.value),
-        yAxisIndex: 0,
-        lineStyle: { color: '#3b82f6' },
-        itemStyle: { color: '#3b82f6' }
-      },
-      {
-        name: '光功率衰减',
-        type: 'line',
-        smooth: true,
-        data: fiberWarningData.map(d => d.powerAttenuation),
-        yAxisIndex: 1,
-        lineStyle: { color: '#f59e0b' },
-        itemStyle: { color: '#f59e0b' }
-      }
-    ],
-    backgroundColor: 'transparent'
-  })
-
-  // 4. 检修优先级分布
-  const priorityChart = echarts.init(priorityRef.value!)
-  // 模拟10个管段的优先级分布
-  const pipeSections = ['管段1', '管段2', '管段3', '管段4', '管段5', '管段6', '管段7', '管段8', '管段9', '管段10']
-  const priorityData = pipeSections.map(() => {
-    const coeff = Math.random() * 10
-    if (coeff >= 8) return '极高'
-    else if (coeff >= 6) return '高'
-    else if (coeff >= 4) return '中'
-    else return '低'
-  })
-  // 统计各优先级数量
-  const priorityCount = {
-    '极高': priorityData.filter(p => p === '极高').length,
-    '高': priorityData.filter(p => p === '高').length,
-    '中': priorityData.filter(p => p === '中').length,
-    '低': priorityData.filter(p => p === '低').length
+      ],
+      backgroundColor: 'transparent'
+    })
+    // 窗口自适应
+    window.addEventListener('resize', () => trendChart.resize())
   }
 
-  priorityChart.setOption({
-    title: { text: '管段检修优先级分布', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
-    tooltip: { trigger: 'item' },
-    legend: { top: 30, textStyle: { color: '#cbd5f5' }, right: 10 },
-    series: [
-      {
-        name: '检修优先级',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        data: [
-          { value: priorityCount['极高'], name: '极高', itemStyle: { color: '#ef4444' } },
-          { value: priorityCount['高'], name: '高', itemStyle: { color: '#f97316' } },
-          { value: priorityCount['中'], name: '中', itemStyle: { color: '#eab308' } },
-          { value: priorityCount['低'], name: '低', itemStyle: { color: '#22c55e' } }
-        ],
-        label: { color: '#e5e7eb' },
-        labelLine: { lineStyle: { color: '#94a3b8' } }
-      }
-    ],
-    backgroundColor: 'transparent'
-  })
+  // 2. 剩余寿命预测曲线
+  if (lifeRef.value) {
+    const lifeChart = echarts.init(lifeRef.value)
+    // 寿命预测数据：未来12个月的剩余寿命
+    const lifePredictData = Array.from({ length: 12 }, (_, i) => {
+      const currentDamage = historyData.at(-1)!.value + i * 2.5
+      const powerAttenuation = fiberWarningData.at(-1)!.powerAttenuation + i * 0.4
+      return calculateRemainingLife(currentDamage, powerAttenuation).life
+    })
+    const lifeTimeData = Array.from({ length: 12 }, (_, i) => `${i + 1}月后`)
+    
+    lifeChart.setOption({
+      title: { text: '剩余寿命衰减预测', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
+      grid: { top: 70, left: 50, right: 40, bottom: 20 },
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: lifeTimeData },
+      yAxis: { type: 'value', name: '剩余寿命(月)', min: 0 },
+      series: [
+        {
+          name: '剩余寿命',
+          type: 'line',
+          smooth: true,
+          data: lifePredictData,
+          areaStyle: { opacity: 0.15, color: '#10b981' },
+          lineStyle: { color: '#10b981' },
+          itemStyle: { color: '#10b981' },
+          markPoint: {
+            data: [{ name: '临界值', value: '5个月', xAxis: 8, yAxis: 5 }],
+            itemStyle: { color: '#ef4444' }
+          }
+        }
+      ],
+      backgroundColor: 'transparent'
+    })
+    window.addEventListener('resize', () => lifeChart.resize())
+  }
 
-  // 窗口自适应
-  window.addEventListener('resize', () => {
-    trendChart.resize()
-    lifeChart.resize()
-    correlationChart.resize()
-    priorityChart.resize()
-  })
+  // 3. 光纤预警与管损相关性分析
+  if (correlationRef.value) {
+    const correlationChart = echarts.init(correlationRef.value)
+    correlationChart.setOption({
+      title: { text: '光纤预警-管损相关性', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
+      grid: { top: 70, left: 50, right: 40, bottom: 20 },
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: fiberWarningData.map(d => d.time) },
+      yAxis: [
+        { type: 'value', name: '管损指数', max: 120, axisLine: { lineStyle: { color: '#3b82f6' } } },
+        { type: 'value', name: '光功率衰减(dB)', max: 10, axisLine: { lineStyle: { color: '#f59e0b' } } }
+      ],
+      series: [
+        {
+          name: '管损指数',
+          type: 'line',
+          smooth: true,
+          data: historyData.map(d => d.value),
+          yAxisIndex: 0,
+          lineStyle: { color: '#3b82f6' },
+          itemStyle: { color: '#3b82f6' }
+        },
+        {
+          name: '光功率衰减',
+          type: 'line',
+          smooth: true,
+          data: fiberWarningData.map(d => d.powerAttenuation),
+          yAxisIndex: 1,
+          lineStyle: { color: '#f59e0b' },
+          itemStyle: { color: '#f59e0b' }
+        }
+      ],
+      backgroundColor: 'transparent'
+    })
+    window.addEventListener('resize', () => correlationChart.resize())
+  }
+
+  // 4. 检修优先级分布
+  if (priorityRef.value) {
+    const priorityChart = echarts.init(priorityRef.value)
+    // 模拟10个管段的优先级分布
+    const pipeSections = ['管段1', '管段2', '管段3', '管段4', '管段5', '管段6', '管段7', '管段8', '管段9', '管段10']
+    const priorityData = pipeSections.map(() => {
+      const coeff = Math.random() * 10
+      if (coeff >= 8) return '极高'
+      else if (coeff >= 6) return '高'
+      else if (coeff >= 4) return '中'
+      else return '低'
+    })
+    // 统计各优先级数量
+    const priorityCount = {
+      '极高': priorityData.filter(p => p === '极高').length,
+      '高': priorityData.filter(p => p === '高').length,
+      '中': priorityData.filter(p => p === '中').length,
+      '低': priorityData.filter(p => p === '低').length
+    }
+
+    priorityChart.setOption({
+      title: { text: '管段检修优先级分布', left: 'center', textStyle: { color: '#e5e7eb', fontSize: 14 } },
+      tooltip: { trigger: 'item' },
+      legend: { top: 30, textStyle: { color: '#cbd5f5' }, right: 10 },
+      series: [
+        {
+          name: '检修优先级',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          data: [
+            { value: priorityCount['极高'], name: '极高', itemStyle: { color: '#ef4444' } },
+            { value: priorityCount['高'], name: '高', itemStyle: { color: '#f97316' } },
+            { value: priorityCount['中'], name: '中', itemStyle: { color: '#eab308' } },
+            { value: priorityCount['低'], name: '低', itemStyle: { color: '#22c55e' } }
+          ],
+          label: { color: '#e5e7eb' },
+          labelLine: { lineStyle: { color: '#94a3b8' } }
+        }
+      ],
+      backgroundColor: 'transparent'
+    })
+    window.addEventListener('resize', () => priorityChart.resize())
+  }
 })
+
 </script>
 
 <style scoped>

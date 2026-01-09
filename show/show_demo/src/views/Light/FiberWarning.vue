@@ -48,6 +48,11 @@
         </div>
       </div>
 
+      <!-- 新增：GLB模型展示容器 -->
+      <div class="mb-6">
+        <div ref="modelContainer" class="glb-model-container w-full h-[300px] rounded-xl overflow-hidden border border-slate-700/50"></div>
+      </div>
+
       <!-- 设备类型切换按钮组 -->
       <div class="device-switch w-full mb-6">
         <div class="relative bg-slate-800/40 rounded-2xl p-1 border border-slate-700/50 w-full">
@@ -180,6 +185,10 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
 import GlassCard from '@/components/Common/GlassCard.vue';
 import { ElMessage } from 'element-plus';
+// 新增：Three.js 相关导入
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /* ===============================
    配置与类型定义
@@ -189,7 +198,7 @@ const VIEW_SIZE = 3;        // 可视区域显示数量
 const POINT_COUNT = 40;     // 每根光纤检测点数
 // 多维度阈值配置
 const THRESHOLDS = {
-  temperature: { min: 20, max: 90, alarmDiff: 15, highTemp: 75 }, // 温度：℃
+  temperature: { min: 20, max: 90, alarmDiff: 15, highValue: 75 }, // 温度：℃
   strain: { min: 0, max: 500, alarmDiff: 50, highValue: 350 },    // 应变：με
   vibration: { min: 0, max: 100, alarmDiff: 20, highValue: 70 }   // 振动：mm/s
 };
@@ -342,6 +351,220 @@ const totalSystemAlarms = computed(() => {
   });
   return total;
 });
+
+/* ===============================
+   新增：GLB模型相关变量
+=============================== */
+const modelContainer = ref<HTMLDivElement>();
+// Three.js 核心对象
+let scene: THREE.Scene | null = null;
+let camera: THREE.PerspectiveCamera | null = null;
+let renderer: THREE.WebGLRenderer | null = null;
+let controls: OrbitControls | null = null;
+let model: THREE.Object3D | null = null;
+// 动画循环ID
+let animationId: number | null = null;
+
+
+function initGLBScene() {
+  if (!modelContainer.value) return;
+
+  // 1. 创建场景
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1e293b);
+
+  // 2. 创建相机 - 右转90° + 极近初始位置
+  camera = new THREE.PerspectiveCamera(60, modelContainer.value.clientWidth / modelContainer.value.clientHeight, 0.001, 10000);
+  // 右转90°核心：x轴方向，z轴=0；极近初始位置
+  camera.position.set(3, 2, 0); 
+  camera.lookAt(0, 0, 0);
+
+  // 3. 创建渲染器 - 确保近距离细节清晰
+  renderer = new THREE.WebGLRenderer({ 
+    antialias: true, 
+    alpha: true,
+    powerPreference: "high-performance" as const // 解决TS类型警告
+  });
+  renderer.setSize(modelContainer.value.clientWidth, modelContainer.value.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  modelContainer.value.appendChild(renderer.domElement);
+
+  // 4. 光照系统 - 适配极近距离视角
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // 增强环境光，确保细节清晰
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // 增强主光源
+  directionalLight.position.set(10, 8, 3); // 适配极近视角
+  directionalLight.castShadow = true;
+  scene.add(directionalLight);
+  const directionalLight2 = new THREE.DirectionalLight(0xaaaaaa, 0.8);
+  directionalLight2.position.set(3, 5, -2);
+  scene.add(directionalLight2);
+
+  // 5. 轨道控制器 - 终极近距离配置
+  if (camera && renderer) { // 增加非空判断，解决TS警告
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.minDistance = 0.5; // 最小距离降至0.5，允许超近距离缩放
+    controls.maxDistance = 20; // 最大距离进一步缩小，防止拉远
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.target.set(0, 0, 0);
+    controls.update();
+  }
+
+  // 6. 加载GLB模型 - 终极放大 + 超近距离适配
+  const loader = new GLTFLoader();
+  loader.load(
+    '/src/assets/3D/factory.glb',
+    (gltf) => {
+      model = gltf.scene;
+      
+      // 计算模型包围盒
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      
+      // 目标显示尺寸调至25（终极放大，模型占满大部分容器）
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const targetSize = 130; // 极致放大模型
+      const scaleRatio = targetSize / maxDim;
+      
+      // 缩放模型
+      model.scale.set(scaleRatio, scaleRatio, scaleRatio);
+      
+      // 重新计算缩放后的包围盒
+      box.setFromObject(model);
+      box.getCenter(center);
+      box.getSize(size);
+      
+      // 模型居中
+      model.position.sub(center);
+      
+      // 安全距离倍数降至0.8（超近距离，几乎贴在模型表面）
+      const fitDistance = size.length() * 0.8; // 终极近距离倍数
+      // 强制确保安全距离 > 控制器最小距离，防止进入模型
+      const safeDistance = Math.max(fitDistance, controls?.minDistance || 1.0);
+      
+      // 修复TS警告：添加camera非空判断
+      if (camera) {
+        // 右转90°的超近相机位置（x轴方向）
+        // 核心：x轴=safeDistance * 0.8（进一步贴近），z轴=0，高度极低
+        camera.position.set(safeDistance * 0.8, safeDistance * 0.2, 0); 
+        camera.lookAt(0, 0, 0); // 保持看向模型中心
+        camera.updateProjectionMatrix();
+      }
+      
+      if (controls) { // 非空判断
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+      
+      scene?.add(model);
+      
+      console.log('模型加载完成 - 缩放后尺寸:', size, '缩放比例:', scaleRatio, '超近相机距离:', safeDistance);
+    },
+    (xhr) => {
+      console.log(`GLB模型加载进度: ${(xhr.loaded / xhr.total) * 100}%`);
+    },
+    // 修复TS警告：参数类型改为unknown，内部做类型检查
+    (error: unknown) => {
+      // 类型守卫：检查是否为Error实例
+      const errorMsg = error instanceof Error 
+        ? error.message 
+        : typeof error === 'string' 
+          ? error 
+          : '未知错误';
+      
+      console.error('GLB模型加载失败:', error);
+      ElMessage.error(`3D模型加载失败: ${errorMsg || '请检查模型文件是否存在或格式正确'}`);
+    }
+  );
+
+  // 7. 动画循环
+  function animate() {
+    animationId = requestAnimationFrame(animate);
+    controls?.update();
+    // 修复TS警告：添加scene、camera、renderer非空判断
+    if (scene && camera && renderer) {
+      renderer.render(scene, camera);
+    }
+  }
+  animate();
+
+  // 8. 窗口大小调整（适配超近距离+右转90°）
+  window.addEventListener('resize', onWindowResize);
+}
+
+
+function onWindowResize() {
+  if (!modelContainer.value || !camera || !renderer) return; // 提前返回，简化判断
+
+  camera.aspect = modelContainer.value.clientWidth / modelContainer.value.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(modelContainer.value.clientWidth, modelContainer.value.clientHeight);
+  
+  if (model && camera && controls) { // 非空组合判断
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    
+    const fitDistance = size.length() * 0.8;
+    const safeDistance = Math.max(fitDistance, controls.minDistance || 1.0);
+    
+    // 窗口变化时，强制保持超近距离+右转90°视角
+    camera.position.set(safeDistance * 0.8, safeDistance * 0.2, 0);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+    controls.update();
+  }
+}
+
+function disposeGLBScene() {
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+
+  if (controls) {
+    controls.dispose();
+    controls = null;
+  }
+
+  if (model && scene) {
+    scene.remove(model);
+    model.traverse((obj) => {
+      if ((obj as THREE.Mesh).geometry) {
+        (obj as THREE.Mesh).geometry.dispose();
+      }
+      if ((obj as THREE.Mesh).material) {
+        const material = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[];
+        if (Array.isArray(material)) {
+          material.forEach(m => m.dispose());
+        } else {
+          material.dispose();
+        }
+      }
+      if ((obj as THREE.Light).dispose) {
+        (obj as THREE.Light).dispose();
+      }
+    });
+    model = null;
+  }
+
+  if (renderer) {
+    if (modelContainer.value && renderer.domElement) {
+      modelContainer.value.removeChild(renderer.domElement);
+    }
+    renderer.dispose();
+    renderer = null;
+  }
+
+  scene = null;
+  camera = null;
+
+  window.removeEventListener('resize', onWindowResize);
+}
 
 /* ===============================
    数据生成与更新逻辑
@@ -801,6 +1024,9 @@ onMounted(() => {
 
   // 启动模拟
   updateSimulation();
+
+  // 新增：初始化GLB模型场景
+  initGLBScene();
 });
 
 onUnmounted(() => {
@@ -811,6 +1037,9 @@ onUnmounted(() => {
   });
   chart && chart.dispose();
   subChart && subChart.dispose();
+
+  // 新增：销毁GLB模型场景
+  disposeGLBScene();
 });
 
 // 监听维度切换刷新样式
@@ -1178,4 +1407,11 @@ watch(activeDimension, () => {
 
 .ctrl-btn.up .arrow { transform: rotate(-135deg); margin-top: 2px; }
 .ctrl-btn.down .arrow { transform: rotate(45deg); margin-bottom: 2px; }
+
+/* 新增：GLB模型容器样式 */
+.glb-model-container {
+  position: relative;
+  overflow: hidden;
+  background-color: #1e293b;
+}
 </style>

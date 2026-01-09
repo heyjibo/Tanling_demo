@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col gap-3 overflow-hidden bg-[#0b1121] text-slate-300 p-3 select-none">
     <!-- ==================== 顶部标题栏 ==================== -->
-        <div class="mb-6">
+    <div class="mb-6">
       <button 
         @click="$emit('back')"
         class="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors group"
@@ -159,7 +159,7 @@
 
         <!-- R2. 仪表盘 + 热力图 -->
         <div class="h-[35%] flex gap-3 min-h-0">
-           <!-- 仪表盘 -->
+           <!-- 仪表盘 (已优化：数据70-90，数值下移) -->
            <div class="flex-1 bg-slate-900/40 rounded border border-slate-700/30 p-2 flex flex-col relative overflow-hidden">
               <div class="flex justify-between px-2 mb-1 z-10">
                  <div class="text-xs text-slate-400 font-bold">声压级</div>
@@ -263,44 +263,73 @@ const initCharts = () => {
     });
   }
 
-  // 2. 仪表盘
+  // 2. 仪表盘 (关键修改：数值下移，数据逻辑在loop中控制)
   if (gaugeChartRef.value) {
     gaugeChart = echarts.init(gaugeChartRef.value);
+    
     const gaugeCommon = {
       type: 'gauge',
-      startAngle: 200, endAngle: -20,
+      startAngle: 210, 
+      endAngle: -30,
       min: 0, max: 100,
-      radius: '75%', 
+      radius: '65%', // 适中大小，避免堆叠
       splitNumber: 5,
-      itemStyle: { color: '#22d3ee' },
-      progress: { show: true, width: 3 }, 
-      pointer: { show: true, length: '60%', width: 3, itemStyle: { color: '#fff' } },
-      axisLine: { lineStyle: { width: 3, color: [[1, '#1e293b']] } },
+      axisLine: { 
+        lineStyle: { width: 6, color: [[1, 'rgba(255,255,255,0.08)']] } 
+      },
+      progress: { show: true, width: 6, roundCap: true },
+      pointer: { show: true, length: '65%', width: 4, itemStyle: { color: 'auto' } },
       axisTick: { show: false },
-      splitLine: { show: true, distance: -3, length: 6, lineStyle: { color: '#475569', width: 1 } },
+      splitLine: { distance: 2, length: 5, lineStyle: { color: 'rgba(255,255,255,0.2)', width: 2 } },
       axisLabel: { show: false }, 
-      anchor: { show: true, showAbove: true, size: 6, itemStyle: { borderWidth: 0, color: '#fff' } },
+      anchor: { show: true, showAbove: true, size: 8, itemStyle: { borderWidth: 2, borderColor: '#fff', color: 'auto' } },
+      // 标题位置
       title: { 
         show: true, 
-        offsetCenter: [0, '100%'], 
+        offsetCenter: [0, '135%'], // 避开数值，移到底部
         fontSize: 12, 
         color: '#94a3b8', 
-        fontWeight: 'bold' 
+        fontWeight: 'normal' 
       },
+      // 数值位置 (关键修改：下移至 45%)
       detail: { 
-        valueAnimation: false, 
-        offsetCenter: [0, '65%'], 
-        fontSize: 16, 
+        valueAnimation: true, 
+        offsetCenter: [0, '45%'], // 往下挪
+        fontSize: 20, 
         fontWeight: 'bold', 
-        formatter: '{value}', 
-        color: '#fff' 
-      }
+        formatter: '{value}dB', 
+        color: '#fff',
+        textShadowBlur: 5,
+        textShadowColor: 'rgba(0,0,0,0.5)'
+      },
+      animation: true,
+      animationDuration: 300,
+      animationEasing: 'cubicOut'
     };
+
     gaugeChart.setOption({
       series: [
-        { ...gaugeCommon, name: 'A计权', center: ['18%', '55%'], detail: { ...gaugeCommon.detail, color: '#4ade80' } },
-        { ...gaugeCommon, name: 'C计权', center: ['50%', '55%'], detail: { ...gaugeCommon.detail, color: '#22d3ee' } },
-        { ...gaugeCommon, name: 'Z计权', center: ['82%', '55%'], detail: { ...gaugeCommon.detail, color: '#f472b6' } }
+        { 
+          ...gaugeCommon, 
+          name: 'A计权', 
+          center: ['17%', '55%'], 
+          itemStyle: { color: '#4ade80' },
+          detail: { ...gaugeCommon.detail, color: '#4ade80' } 
+        },
+        { 
+          ...gaugeCommon, 
+          name: 'C计权', 
+          center: ['50%', '55%'], 
+          itemStyle: { color: '#22d3ee' },
+          detail: { ...gaugeCommon.detail, color: '#22d3ee' } 
+        },
+        { 
+          ...gaugeCommon, 
+          name: 'Z计权', 
+          center: ['83%', '55%'], 
+          itemStyle: { color: '#f472b6' },
+          detail: { ...gaugeCommon.detail, color: '#f472b6' } 
+        }
       ]
     });
   }
@@ -372,9 +401,9 @@ let heatMatrix: number[][] = [];
 for(let t=0; t<HEAT_X; t++) heatMatrix[t] = new Array(SPECTROGRAM_BINS).fill(0);
 
 let phase = 0;
+let gaugeThrottle = 0; 
 
 const loop = () => {
-  // 如果组件已卸载，直接停止
   if (!waveChart) return; 
 
   if (!controls.playing) {
@@ -386,7 +415,7 @@ const loop = () => {
   phase += 0.2;
   const isMuted = controls.muted;
 
-  // 1. 生成数据 (省略部分计算细节，保持原样)
+  // 1. 生成柱状图数据
   const freqData = categories.map((_, i) => {
     if (isMuted) return 0;
     let base = 70 - i * 1.5; 
@@ -395,6 +424,7 @@ const loop = () => {
     return Math.max(0, Math.min(100, base + fluctuation));
   });
 
+  // 2. 生成热力图数据
   const currentMelColumn = new Array(SPECTROGRAM_BINS).fill(0).map((_, yIndex) => {
     if (isMuted) return 0;
     let val = Math.random() * 10;
@@ -417,6 +447,7 @@ const loop = () => {
     }
   }
 
+  // 3. 生成波形图数据
   waveBuffer.shift();
   if (isMuted) {
     waveBuffer.push(0);
@@ -425,22 +456,44 @@ const loop = () => {
     waveBuffer.push((raw * controls.amplitude) + controls.offset);
   }
 
-  // 4. 更新图表 (关键修复：先判断 !== null)
+  // 4. 更新图表
   currentTime.value = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
   
   if (waveChart) waveChart.setOption({ series: [{ data: waveBuffer }] });
   if (barChart) barChart.setOption({ series: [{ data: freqData }] });
   if (heatmapChart) heatmapChart.setOption({ series: [{ data: flatHeatData }] });
   
+  // 5. 仪表盘独立更新逻辑 (严格限制在 70-90)
   if (gaugeChart) {
-    const energy = isMuted ? 0 : 50 + Math.sin(phase * 0.5) * 10 + (Math.random() - 0.5) * 5;
-    gaugeChart.setOption({
-      series: [
-        { data: [{ value: (energy * 0.8).toFixed(1), name: 'A计权' }] },
-        { data: [{ value: energy.toFixed(1), name: 'C计权' }] },
-        { data: [{ value: (energy * 1.1).toFixed(1), name: 'Z计权' }] }
-      ]
-    });
+    gaugeThrottle++;
+    if (gaugeThrottle > 20) {
+      gaugeThrottle = 0;
+      
+      // 基准值设为 80，波动幅度控制在 +/- 10 以内
+      const baseEnergy = 80; 
+      
+      let valA = 0, valC = 0, valZ = 0;
+
+      if (!isMuted) {
+        // 计算随机波动
+        const rawA = baseEnergy + Math.sin(phase * 0.3) * 5 + (Math.random() - 0.5) * 8;
+        const rawC = baseEnergy + Math.cos(phase * 0.2) * 4 + (Math.random() - 0.5) * 6;
+        const rawZ = baseEnergy + Math.sin(phase * 0.5) * 6 + (Math.random() - 0.5) * 10;
+
+        // 强制 Clamp 到 70-90
+        valA = Math.max(70, Math.min(90, rawA));
+        valC = Math.max(70, Math.min(90, rawC));
+        valZ = Math.max(70, Math.min(90, rawZ));
+      }
+
+      gaugeChart.setOption({
+        series: [
+          { data: [{ value: valA.toFixed(1), name: 'A计权' }] },
+          { data: [{ value: valC.toFixed(1), name: 'C计权' }] },
+          { data: [{ value: valZ.toFixed(1), name: 'Z计权' }] }
+        ]
+      });
+    }
   }
 
   animationFrameId = requestAnimationFrame(loop);
@@ -449,7 +502,6 @@ const loop = () => {
 // ================= 生命周期 =================
 let resizeObserver: ResizeObserver | null = null;
 
-// 窗口 resize 监听器提取出来，方便移除
 const handleWindowResize = () => {
     if (waveChart) waveChart.resize();
     if (gaugeChart) gaugeChart.resize();
@@ -462,9 +514,7 @@ onMounted(() => {
     initCharts();
     loop(); 
     
-    // 初始化 ResizeObserver
     resizeObserver = new ResizeObserver(() => {
-        // 使用 requestAnimationFrame 避免 loop loop error，但必须加上空值检查
         requestAnimationFrame(() => {
             if (waveChart) waveChart.resize();
             if (gaugeChart) gaugeChart.resize();
@@ -481,20 +531,14 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  // 1. 停止动画循环
   cancelAnimationFrame(animationFrameId);
-  
-  // 2. 移除原生事件监听
   window.removeEventListener('resize', handleWindowResize);
   
-  // 3. 断开 ResizeObserver
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
   }
 
-  // 4. 【关键】销毁图表实例 并 将变量置为 null
-  // 这样异步的回调检测到 null 就不会去执行 .resize() 了
   if (waveChart) { waveChart.dispose(); waveChart = null; }
   if (gaugeChart) { gaugeChart.dispose(); gaugeChart = null; }
   if (heatmapChart) { heatmapChart.dispose(); heatmapChart = null; }
