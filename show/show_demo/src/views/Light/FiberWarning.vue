@@ -170,8 +170,8 @@
             <span class="alarm-type">{{ alarm.type }}</span>
             <span class="alarm-position">{{ alarm.position }}</span>
             <span class="alarm-value">{{ alarm.value }}{{ dimensionUnit }}</span>
-            <span class="alarm-time">{{ alarm.time }}</span>
-            <el-button size="small" type="primary" @click="handleAlarm(alarm.id)">处理</el-button>
+          <span class="alarm-time">{{ alarm.time }}</span>
+          <el-button size="small" type="primary" @click="handleAlarm(alarm.id)">处理</el-button>
           </div>
           <div v-if="alarmList.length === 0" class="empty-alarm">暂无告警</div>
         </div>

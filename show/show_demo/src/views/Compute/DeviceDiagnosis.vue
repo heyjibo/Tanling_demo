@@ -19,7 +19,7 @@
           <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
             安庆石化设备诊断
           </h1>
-          <p class="text-slate-400 mt-2">安庆石化 - 基于相关性的实时设备异常检测</p>
+          
         </div>
         <div class="flex items-center gap-4">
           <div class="text-sm text-slate-400">
@@ -2223,12 +2223,11 @@ button:hover {
 
 /* 用于截断多行文本 */
 .line-clamp-2 {
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
   line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* 渐变边框效果 */
