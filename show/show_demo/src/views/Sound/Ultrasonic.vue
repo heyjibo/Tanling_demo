@@ -352,7 +352,7 @@ const svgContent = ref('');
 const mapLoaded = ref(false);
 // 运动配置
 const CONFIG = { 
-  SPEED: 1.5,           
+  SPEED: 0.2,           
   WANDER_FORCE: 0.1,    
   MAX_TRAIL: 300 
 };
