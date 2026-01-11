@@ -22,7 +22,7 @@
         </p>
       </div>
 
-      <!-- 顶部状态面板 - 新增总告警数 -->
+      <!-- 顶部状态面板 -->
       <div class="status-panel">
         <div class="status-item">
           <span class="label">系统状态</span>
@@ -37,7 +37,6 @@
           <span class="label">当前告警数</span>
           <span class="value alarm">{{ currentAlarmCount }}</span>
         </div>
-        <!-- 新增：系统总告警数 -->
         <div class="status-item">
           <span class="label">系统总告警数</span>
           <span class="value alarm">{{ totalSystemAlarms }}</span>
@@ -48,7 +47,7 @@
         </div>
       </div>
 
-      <!-- 新增：GLB模型展示容器 -->
+      <!-- GLB模型展示容器 -->
       <div class="mb-6">
         <div ref="modelContainer" class="glb-model-container w-full h-[300px] rounded-xl overflow-hidden border border-slate-700/50"></div>
       </div>
@@ -56,7 +55,6 @@
       <!-- 设备类型切换按钮组 -->
       <div class="device-switch w-full mb-6">
         <div class="relative bg-slate-800/40 rounded-2xl p-1 border border-slate-700/50 w-full">
-          <!-- 背景滑块 - 适配4个选项的滑动效果 -->
           <div 
             class="absolute top-1 bottom-1 rounded-xl transition-all duration-500 ease-out"
             :class="[
@@ -66,8 +64,6 @@
               'w-[calc(25%-0.5rem)] left-[calc(75%+0.5625rem)] bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30'
             ]"
           ></div>
-          
-          <!-- 按钮组 - 4列均分，占满整行 -->
           <div class="relative z-10 grid grid-cols-4 gap-1">
             <button
               v-for="device in deviceTypeItems"
@@ -79,7 +75,6 @@
               <div class="flex flex-col items-center">
                 <span class="text-2xl mb-2">{{ device.icon }}</span>
                 <span class="font-medium text-sm">{{ device.label }}</span>
-                <!-- 激活态脉冲圆点 -->
                 <div v-if="currentDeviceType === device.value" class="w-1.5 h-1.5 rounded-full mt-2 animate-pulse" :class="device.dotClass"></div>
               </div>
             </button>
@@ -103,7 +98,6 @@
 
       <!-- 管道区域 -->
       <div class="pipeline-wrap">
-        <!-- 管道外壳 -->
         <div class="pipeline-shell">
           <div class="pipeline-inner">
             <div
@@ -116,13 +110,8 @@
               @mousemove="onFiberMove($event, fiber)"
               @mouseleave="hideHoverPoint"
             >
-              <!-- 光纤名称 -->
               <span class="fiber-label">{{ fiber.name }}</span>
-              
-              <!-- 光纤本体（微缩热力图/应变/振动图） -->
               <div class="fiber-core" :style="{ background: getFiberGradient(fiber) }"></div>
-
-              <!-- 悬浮提示点 -->
               <div
                 v-if="hover.visible && hover.fiberId === fiber.id"
                 class="hover-point"
@@ -137,12 +126,8 @@
               </div>
             </div>
           </div>
-          
-          <!-- 装饰性光泽 -->
           <div class="shine-overlay"></div>
         </div>
-
-        <!-- 翻页控制 -->
         <div class="fiber-controls">
           <button class="ctrl-btn up" @click="prevGroup" :disabled="startIndex === 0">
             <i class="arrow"></i>
@@ -153,11 +138,82 @@
         </div>
       </div>
 
-      <!-- 双图表区域：原有温度图表 + 新增指标趋势图 -->
+      <!-- 双图表区域 -->
       <div class="charts-container">
         <div ref="chartRef" class="chart-item main-chart"></div>
         <div ref="subChartRef" class="chart-item sub-chart"></div>
       </div>
+
+      <!-- ==================== 新增：AI智能预警展示区域 ==================== -->
+      <div class="prediction-panel mb-6" v-if="predictionList.length > 0">
+        <div class="prediction-header">
+          <div class="flex items-center gap-2">
+            <span class="animate-pulse text-amber-500 text-xl">⚡</span>
+            <h3 class="text-amber-500 font-bold text-base">AI 趋势预测 & 风险预警</h3>
+          </div>
+          <span class="text-slate-400 text-xs">基于线性回归分析预测未来1小时风险</span>
+        </div>
+        
+        <div class="grid grid-cols-1 gap-3">
+          <div 
+            v-for="pred in predictionList" 
+            :key="pred.id"
+            class="prediction-card group"
+            :class="{'dispatched': pred.status === 'dispatched'}"
+          >
+            <!-- 预警图标 -->
+            <div class="pred-icon-box">
+              <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+
+            <!-- 预警内容 -->
+            <div class="flex-1">
+              <div class="flex justify-between items-start mb-1">
+                <span class="font-bold text-slate-200 text-sm">{{ pred.fiberName }} - {{ pred.section }}</span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400">
+                  风险概率: {{ pred.probability }}%
+                </span>
+              </div>
+              
+              <div class="flex items-center gap-4 text-xs">
+                <span class="text-slate-400">异常类型: <span class="text-amber-400">{{ pred.type }}</span></span>
+                <span class="text-slate-400">预计事故发生: <span class="text-red-400 font-bold text-sm">{{ pred.timeToFail }}</span> 后</span>
+              </div>
+              
+              <!-- 进度条模拟风险值 -->
+              <div class="w-full bg-slate-700/50 h-1.5 mt-2 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-amber-500 to-red-500 transition-all duration-1000" :style="{ width: pred.riskLevel + '%' }"></div>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex items-center ml-4 border-l border-slate-700 pl-4">
+              <button 
+                v-if="pred.status === 'pending'"
+                @click="sendWorkOrder(pred)"
+                class="flex flex-col items-center justify-center gap-1 text-xs text-amber-500 hover:text-amber-300 transition-colors bg-amber-500/10 hover:bg-amber-500/20 px-3 py-2 rounded-lg border border-amber-500/30"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                派发工单
+              </button>
+              <div v-else class="flex flex-col items-center justify-center gap-1 text-xs text-emerald-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>已派单</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="prediction-panel mb-6 flex items-center justify-center h-[80px] text-slate-500 text-sm">
+        <span class="mr-2">✅</span> AI 智能分析中，暂无高风险趋势
+      </div>
+      <!-- ==================== 结束新增区域 ==================== -->
 
       <!-- 告警列表 -->
       <div class="alarm-list">
@@ -176,6 +232,7 @@
           <div v-if="alarmList.length === 0" class="empty-alarm">暂无告警</div>
         </div>
       </div>
+
       <!-- 温度异常处理弹窗 -->
       <el-dialog
         v-model="dialogVisible"
@@ -205,13 +262,11 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
 import GlassCard from '@/components/Common/GlassCard.vue';
-import { ElMessage } from 'element-plus';
-// 新增：Three.js 相关导入
+// 引入 Notification 用于工单提示
+import { ElMessage, ElNotification, ElDialog, ElRadioGroup, ElRadioButton, ElButton } from 'element-plus';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-//弹窗逻辑
-import { ElDialog, ElRadioGroup, ElRadioButton, ElButton } from 'element-plus';
 
 /* ===============================
    配置与类型定义
@@ -261,6 +316,19 @@ interface AlarmItem {
   pointIndex: number;
 }
 
+// 新增：预测项接口
+interface PredictionItem {
+  id: string;
+  fiberId: number;
+  fiberName: string;
+  section: string;
+  type: string; // "持续升温", "应力累积", "频发震颤"
+  probability: number; // 0-100
+  timeToFail: string; // "xx分xx秒"
+  riskLevel: number; // 0-100 进度条
+  status: 'pending' | 'dispatched';
+}
+
 // 新增设备类型配置项（和原有逻辑联动）
 const deviceTypeItems = ref([
   { 
@@ -304,6 +372,9 @@ const dimensions = ref<Dimension[]>([
 // 核心数据
 const fibers = ref<FiberData[]>([]);
 const alarmList = ref<AlarmItem[]>([]);
+// 新增：预测列表状态
+const predictionList = ref<PredictionItem[]>([]);
+
 const startIndex = ref(0);
 const activeFiberId = ref(1);
 const hover = ref({
@@ -326,7 +397,7 @@ const currentAlarmCount = computed(() => alarmList.value.length);
 const dialogVisible = ref(false);
 const currentHandleAlarm = ref<AlarmItem | null>(null);
 const handleType = ref(''); // 保温/保冷
-// 定义响应延迟的正常范围（可根据业务调整，比如 60-100ms）
+// 定义响应延迟的正常范围
 const RESPONSE_DELAY_MIN = 60;
 const RESPONSE_DELAY_MAX = 100;
 
@@ -335,44 +406,32 @@ const responseDelay = ref(
   Math.floor(Math.random() * (RESPONSE_DELAY_MAX - RESPONSE_DELAY_MIN + 1)) + RESPONSE_DELAY_MIN
 );
 
-// 可选：定时小幅波动（模拟实时变化，比如每5秒更新一次）
+// 可选：定时小幅波动
 let delayTimer: any = null;
 function updateResponseDelay() {
-  // 小幅波动：在当前值±5ms范围内，且不超出上下限
-  const fluctuation = Math.floor(Math.random() * 11) - 5; // -5 到 +5 的随机数
+  const fluctuation = Math.floor(Math.random() * 11) - 5; 
   let newDelay = responseDelay.value + fluctuation;
-  
-  // 边界限制：确保值在正常范围内
   newDelay = Math.max(RESPONSE_DELAY_MIN, Math.min(RESPONSE_DELAY_MAX, newDelay));
   responseDelay.value = newDelay;
-  
-  // 递归调用：每5秒更新一次（可调整间隔）
   delayTimer = setTimeout(updateResponseDelay, 5000);
 }
 
-// 组件挂载时启动波动，卸载时清除定时器
 onMounted(() => {
   updateResponseDelay();
 });
 
 onUnmounted(() => {
   clearTimeout(delayTimer);
-  // 顺带清除模拟数据的定时器（避免内存泄漏）
   if (simulationTimer) clearTimeout(simulationTimer);
 });
-// const responseDelay = ref(80); // 模拟响应延迟
 
-// 新增：系统总告警数（所有设备+所有维度）
+// 系统总告警数
 const totalSystemAlarms = computed(() => {
   if (fibers.value.length === 0) return 0;
-  
   let total = 0;
-  // 遍历所有光纤
   fibers.value.forEach(fiber => {
-    // 遍历所有维度
     Object.keys(fiber.alarms).forEach(dimKey => {
       const dim = dimKey as DimensionType;
-      // 统计该维度下的告警数
       total += fiber.alarms[dim].filter(Boolean).length;
     });
   });
@@ -380,166 +439,129 @@ const totalSystemAlarms = computed(() => {
 });
 
 /* ===============================
-   新增：GLB模型相关变量
+   GLB模型相关变量
 =============================== */
 const modelContainer = ref<HTMLDivElement>();
-// Three.js 核心对象
 let scene: THREE.Scene | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
 let renderer: THREE.WebGLRenderer | null = null;
 let controls: OrbitControls | null = null;
 let model: THREE.Object3D | null = null;
-// 动画循环ID
 let animationId: number | null = null;
-
 
 function initGLBScene() {
   if (!modelContainer.value) return;
-
-  // 1. 创建场景
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1e293b);
 
-  // 2. 创建相机 - 右转90° + 极近初始位置
   camera = new THREE.PerspectiveCamera(60, modelContainer.value.clientWidth / modelContainer.value.clientHeight, 0.001, 10000);
-  // 右转90°核心：x轴方向，z轴=0；极近初始位置
   camera.position.set(3, 2, 0); 
   camera.lookAt(0, 0, 0);
 
-  // 3. 创建渲染器 - 确保近距离细节清晰
   renderer = new THREE.WebGLRenderer({ 
     antialias: true, 
     alpha: true,
-    powerPreference: "high-performance" as const // 解决TS类型警告
+    powerPreference: "high-performance" as const
   });
   renderer.setSize(modelContainer.value.clientWidth, modelContainer.value.clientHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   modelContainer.value.appendChild(renderer.domElement);
 
-  // 4. 光照系统 - 适配极近距离视角
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // 增强环境光，确保细节清晰
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // 增强主光源
-  directionalLight.position.set(10, 8, 3); // 适配极近视角
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  directionalLight.position.set(10, 8, 3);
   directionalLight.castShadow = true;
   scene.add(directionalLight);
   const directionalLight2 = new THREE.DirectionalLight(0xaaaaaa, 0.8);
   directionalLight2.position.set(3, 5, -2);
   scene.add(directionalLight2);
 
-  // 5. 轨道控制器 - 终极近距离配置
-  if (camera && renderer) { // 增加非空判断，解决TS警告
+  if (camera && renderer) {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
-    controls.minDistance = 0.5; // 最小距离降至0.5，允许超近距离缩放
-    controls.maxDistance = 20; // 最大距离进一步缩小，防止拉远
+    controls.minDistance = 0.5;
+    controls.maxDistance = 20;
     controls.maxPolarAngle = Math.PI / 2;
     controls.target.set(0, 0, 0);
     controls.update();
   }
 
-  // 6. 加载GLB模型 - 终极放大 + 超近距离适配
   const loader = new GLTFLoader();
   loader.load(
     '/src/assets/3D/factory.glb',
     (gltf) => {
       model = gltf.scene;
-      
-      // 计算模型包围盒
       const box = new THREE.Box3().setFromObject(model);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       
-      // 目标显示尺寸调至25（终极放大，模型占满大部分容器）
       const maxDim = Math.max(size.x, size.y, size.z);
-      const targetSize = 130; // 极致放大模型
+      const targetSize = 130;
       const scaleRatio = targetSize / maxDim;
       
-      // 缩放模型
       model.scale.set(scaleRatio, scaleRatio, scaleRatio);
-      
-      // 重新计算缩放后的包围盒
       box.setFromObject(model);
       box.getCenter(center);
       box.getSize(size);
-      
-      // 模型居中
       model.position.sub(center);
       
-      // 安全距离倍数降至0.8（超近距离，几乎贴在模型表面）
-      const fitDistance = size.length() * 0.8; // 终极近距离倍数
-      // 强制确保安全距离 > 控制器最小距离，防止进入模型
+      const fitDistance = size.length() * 0.8;
       const safeDistance = Math.max(fitDistance, controls?.minDistance || 1.0);
       
-      // 修复TS警告：添加camera非空判断
       if (camera) {
-        // 右转90°的超近相机位置（x轴方向）
-        // 核心：x轴=safeDistance * 0.8（进一步贴近），z轴=0，高度极低
         camera.position.set(safeDistance * 0.8, safeDistance * 0.2, 0); 
-        camera.lookAt(0, 0, 0); // 保持看向模型中心
+        camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
       }
-      
-      if (controls) { // 非空判断
+      if (controls) {
         controls.target.set(0, 0, 0);
         controls.update();
       }
-      
       scene?.add(model);
-      
-      console.log('模型加载完成 - 缩放后尺寸:', size, '缩放比例:', scaleRatio, '超近相机距离:', safeDistance);
     },
     (xhr) => {
       console.log(`GLB模型加载进度: ${(xhr.loaded / xhr.total) * 100}%`);
     },
-    // 修复TS警告：参数类型改为unknown，内部做类型检查
     (error: unknown) => {
-      // 类型守卫：检查是否为Error实例
       const errorMsg = error instanceof Error 
         ? error.message 
         : typeof error === 'string' 
           ? error 
           : '未知错误';
-      
       console.error('GLB模型加载失败:', error);
       ElMessage.error(`3D模型加载失败: ${errorMsg || '请检查模型文件是否存在或格式正确'}`);
     }
   );
 
-  // 7. 动画循环
   function animate() {
     animationId = requestAnimationFrame(animate);
     controls?.update();
-    // 修复TS警告：添加scene、camera、renderer非空判断
     if (scene && camera && renderer) {
       renderer.render(scene, camera);
     }
   }
   animate();
 
-  // 8. 窗口大小调整（适配超近距离+右转90°）
   window.addEventListener('resize', onWindowResize);
 }
 
-
 function onWindowResize() {
-  if (!modelContainer.value || !camera || !renderer) return; // 提前返回，简化判断
+  if (!modelContainer.value || !camera || !renderer) return;
 
   camera.aspect = modelContainer.value.clientWidth / modelContainer.value.clientHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(modelContainer.value.clientWidth, modelContainer.value.clientHeight);
   
-  if (model && camera && controls) { // 非空组合判断
+  if (model && camera && controls) {
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
-    
     const fitDistance = size.length() * 0.8;
     const safeDistance = Math.max(fitDistance, controls.minDistance || 1.0);
     
-    // 窗口变化时，强制保持超近距离+右转90°视角
     camera.position.set(safeDistance * 0.8, safeDistance * 0.2, 0);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
@@ -552,33 +574,14 @@ function disposeGLBScene() {
     cancelAnimationFrame(animationId);
     animationId = null;
   }
-
   if (controls) {
     controls.dispose();
     controls = null;
   }
-
   if (model && scene) {
     scene.remove(model);
-    model.traverse((obj) => {
-      if ((obj as THREE.Mesh).geometry) {
-        (obj as THREE.Mesh).geometry.dispose();
-      }
-      if ((obj as THREE.Mesh).material) {
-        const material = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[];
-        if (Array.isArray(material)) {
-          material.forEach(m => m.dispose());
-        } else {
-          material.dispose();
-        }
-      }
-      if ((obj as THREE.Light).dispose) {
-        (obj as THREE.Light).dispose();
-      }
-    });
     model = null;
   }
-
   if (renderer) {
     if (modelContainer.value && renderer.domElement) {
       modelContainer.value.removeChild(renderer.domElement);
@@ -586,40 +589,34 @@ function disposeGLBScene() {
     renderer.dispose();
     renderer = null;
   }
-
   scene = null;
   camera = null;
-
   window.removeEventListener('resize', onWindowResize);
 }
 
 /* ===============================
    数据生成与更新逻辑
 =============================== */
-// 生成初始数据（多维度）
+// 生成初始数据
 function initData() {
   const now = new Date();
   updateTime.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
   
   fibers.value = Array.from({ length: FIBER_COUNT }, (_, i) => {
-    // 不同设备类型初始值偏移
     const baseTemp = currentDeviceType.value === 'boiler' ? 50 : currentDeviceType.value === 'lng' ? -10 : 25;
     const baseStrain = currentDeviceType.value === 'pressure' ? 200 : 100;
     const baseVibration = currentDeviceType.value === 'valve' ? 30 : 10;
 
-    // 生成各维度数据
     const temperature = generateDimensionData(baseTemp, THRESHOLDS.temperature);
     const strain = generateDimensionData(baseStrain, THRESHOLDS.strain);
     const vibration = generateDimensionData(baseVibration, THRESHOLDS.vibration);
 
-    // 分析各维度告警
     const alarms = {
       temperature: analyzeDimensionAlarm(temperature, THRESHOLDS.temperature),
       strain: analyzeDimensionAlarm(strain, THRESHOLDS.strain),
       vibration: analyzeDimensionAlarm(vibration, THRESHOLDS.vibration)
     };
 
-    // 总告警状态
     const hasAlarm = [
       ...alarms.temperature,
       ...alarms.strain,
@@ -637,21 +634,19 @@ function initData() {
     };
   });
 
-  // 生成初始告警列表
   generateAlarmList();
+  analyzePredictions(); // 新增：初始化时进行一次预测
 }
 
-// 生成单维度数据（随机游走）
+// 生成单维度数据
 function generateDimensionData(baseValue: number, thresholds: any) {
   const data: number[] = [];
   let currentValue = Math.floor(baseValue + Math.random() * 30);
   
   for (let j = 0; j < POINT_COUNT; j++) {
     data.push(currentValue);
-    // 随机变化
     const change = Math.floor(Math.random() * (INIT_STEP_MAX * 2 + 1)) - INIT_STEP_MAX;
     currentValue += change;
-    // 边界限制
     if (currentValue < thresholds.min) currentValue = thresholds.min;
     if (currentValue > thresholds.max) currentValue = thresholds.max;
   }
@@ -692,17 +687,101 @@ function generateAlarmList() {
   });
 }
 
+/* ===============================
+   新增：AI预测分析逻辑
+=============================== */
+function analyzePredictions() {
+  // 1. 清理已不存在风险的条目（只保留状态为 dispatched 的）
+  //    这里为了演示，简单地每次重新计算 pending 状态的
+  const currentDispatched = predictionList.value.filter(p => p.status === 'dispatched');
+  const newPredictions: PredictionItem[] = [];
+
+  fibers.value.forEach(fiber => {
+    // 简化的趋势分析逻辑：
+    // 获取当前维度数据
+    const data = fiber[activeDimension.value];
+    const threshold = THRESHOLDS[activeDimension.value].highValue; // 使用高位阈值作为警戒线
+    const maxVal = THRESHOLDS[activeDimension.value].max; // 绝对上限
+    
+    // 找出增长最快的点（简单的斜率计算）
+    let maxSlope = 0;
+    let maxSlopeIndex = -1;
+    let currentVal = 0;
+
+    for(let i=1; i<data.length; i++) {
+      const slope = data[i] - data[i-1];
+      if (slope > 0 && data[i] > threshold * 0.8) { // 只关注处于高位且在增长的点
+         if(slope > maxSlope) {
+           maxSlope = slope;
+           maxSlopeIndex = i;
+           currentVal = data[i];
+         }
+      }
+    }
+
+    // 如果存在高风险趋势点
+    if (maxSlopeIndex !== -1 && maxSlope >= 2) { // 阈值判定：斜率>=2 且数值在高位
+      // 检查是否已经在 dispatched 列表中
+      const exists = currentDispatched.find(p => p.fiberId === fiber.id && p.section.includes(`#${maxSlopeIndex + 1}`));
+      if(exists) {
+        newPredictions.push(exists);
+        return;
+      }
+
+      // 计算剩余时间：(最大值 - 当前值) / (斜率 * 模拟频率因子)
+      // 假设模拟每15秒更新一次，斜率为每次增加的值
+      const remainingValue = maxVal - currentVal;
+      const stepsToFail = remainingValue / maxSlope;
+      const secondsToFail = Math.floor(stepsToFail * 15); // 假设15s更新一次
+      
+      const minutes = Math.floor(secondsToFail / 60);
+      const seconds = secondsToFail % 60;
+      const timeStr = `${minutes > 0 ? minutes + '分' : ''}${seconds}秒`;
+
+      // 风险概率
+      const probability = Math.min(99, Math.floor(70 + (currentVal / maxVal) * 25));
+      
+      newPredictions.push({
+        id: `pred-${fiber.id}-${maxSlopeIndex}`,
+        fiberId: fiber.id,
+        fiberName: fiber.name,
+        section: `检测点#${maxSlopeIndex + 1}`,
+        type: activeDimension.value === 'temperature' ? '持续升温' : activeDimension.value === 'strain' ? '应力累积' : '频发震颤',
+        probability,
+        timeToFail: timeStr,
+        riskLevel: probability,
+        status: 'pending'
+      });
+    }
+  });
+
+  // 合并结果
+  predictionList.value = [...currentDispatched, ...newPredictions];
+}
+
+// 发送工单逻辑
+function sendWorkOrder(pred: PredictionItem) {
+  pred.status = 'dispatched';
+  const orderId = 'WO-' + Date.now().toString().slice(-6);
+  
+  ElNotification({
+    title: '工单派发成功',
+    message: `工单号：${orderId}
+已通知运维组前往【${pred.fiberName} ${pred.section}】核查风险。`,
+    type: 'success',
+    duration: 4000
+  });
+}
+
 // 模拟数据更新
 function updateSimulation() {
   const nextDelay = Math.floor(15000 + Math.random() * 15000);
   
   fibers.value = fibers.value.map(fiber => {
-    // 更新各维度数据
     const temperature = updateDimensionData(fiber.temperature, THRESHOLDS.temperature);
     const strain = updateDimensionData(fiber.strain, THRESHOLDS.strain);
     const vibration = updateDimensionData(fiber.vibration, THRESHOLDS.vibration);
 
-    // 重新分析告警
     const alarms = {
       temperature: analyzeDimensionAlarm(temperature, THRESHOLDS.temperature),
       strain: analyzeDimensionAlarm(strain, THRESHOLDS.strain),
@@ -718,16 +797,16 @@ function updateSimulation() {
     return { ...fiber, temperature, strain, vibration, alarms, hasAlarm };
   });
 
-  // 更新时间和告警列表
   const now = new Date();
   updateTime.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
   generateAlarmList();
+  
+  // 新增：每次数据更新后，重新分析预测
+  analyzePredictions();
 
-  // 刷新图表
   renderChart(activeFiberId.value);
   renderSubChart(activeFiberId.value);
 
-  // 递归调用
   simulationTimer = setTimeout(updateSimulation, nextDelay);
 }
 
@@ -749,12 +828,12 @@ function updateDimensionData(oldData: number[], thresholds: any) {
 function switchDimension(dim: DimensionType) {
   activeDimension.value = dim;
   generateAlarmList();
+  analyzePredictions(); // 切换维度时重新分析预测
   renderChart(activeFiberId.value);
   renderSubChart(activeFiberId.value);
 }
 
 // 设备类型切换
-// 原有切换逻辑改造（接收value参数）
 const switchDeviceType = (value: string) => {
   currentDeviceType.value = value as 'boiler' | 'lng' | 'pressure' | 'valve';
   initData();
@@ -762,7 +841,7 @@ const switchDeviceType = (value: string) => {
   renderSubChart(activeFiberId.value);
 };
 
-// 光纤渐变样式（适配多维度）
+// 光纤渐变样式
 function getFiberGradient(fiber: FiberData) {
   const thresholds = THRESHOLDS[activeDimension.value];
   const values = fiber[activeDimension.value];
@@ -770,12 +849,12 @@ function getFiberGradient(fiber: FiberData) {
   
   const stops = values.map((val, i) => {
     const pct = (i / (POINT_COUNT - 1)) * 100;
-    let color = 'rgba(56, 189, 248, 0.4)'; // 基础色
+    let color = 'rgba(56, 189, 248, 0.4)'; 
     
     if (alarms[i]) {
-      color = '#ef4444'; // 告警红
+      color = '#ef4444'; 
     } else if (val > thresholds.highValue) {
-      color = '#fbbf24'; // 高值黄
+      color = '#fbbf24'; 
     }
     
     return `${color} ${pct}%`;
@@ -784,7 +863,6 @@ function getFiberGradient(fiber: FiberData) {
   return `linear-gradient(90deg, ${stops.join(', ')})`;
 }
 
-// 可视光纤计算
 const visibleFibers = computed(() =>
   fibers.value
     .slice(startIndex.value, startIndex.value + VIEW_SIZE)
@@ -794,7 +872,6 @@ const visibleFibers = computed(() =>
     }))
 );
 
-// 翻页控制
 function prevGroup() {
   startIndex.value = Math.max(0, startIndex.value - 1);
 }
@@ -803,7 +880,6 @@ function nextGroup() {
   startIndex.value = Math.min(FIBER_COUNT - VIEW_SIZE, startIndex.value + 1);
 }
 
-// 悬浮逻辑
 const dimensionUnit = computed(() => {
   const dim = dimensions.value.find(d => d.key === activeDimension.value);
   return dim ? dim.unit : '';
@@ -830,11 +906,9 @@ function hideHoverPoint() {
 }
 
 function handleAlarm(alarmId: number) {
-  // 找到当前要处理的告警
   const alarm = alarmList.value.find(item => item.id === alarmId);
-  if (alarm && alarm.type === '温差异常') { // 仅温度异常触发弹窗
+  if (alarm && alarm.type === '温差异常') { 
     currentHandleAlarm.value = alarm;
-    // 根据温度值判断默认处理类型
     const tempThreshold = THRESHOLDS.temperature;
     if (alarm.value < tempThreshold.min + (tempThreshold.max - tempThreshold.min) / 2) {
       handleType.value = '保温';
@@ -843,26 +917,20 @@ function handleAlarm(alarmId: number) {
     }
     dialogVisible.value = true;
   } else {
-    // 非温度异常直接移除
     alarmList.value = alarmList.value.filter(item => item.id !== alarmId);
     ElMessage.success('告警已处理');
   }
 }
 
-// 弹窗确认处理方法
 function confirmHandleAlarm() {
   if (!currentHandleAlarm.value) return;
-  // 移除告警
   alarmList.value = alarmList.value.filter(item => item.id !== currentHandleAlarm.value!.id);
-  // 提示处理结果
   ElMessage.success(`已对【${currentHandleAlarm.value.position}】执行${handleType.value}处理`);
-  // 关闭弹窗
   dialogVisible.value = false;
   currentHandleAlarm.value = null;
   handleType.value = '';
 }
 
-// 取消弹窗
 function cancelHandleAlarm() {
   dialogVisible.value = false;
   currentHandleAlarm.value = null;
@@ -875,17 +943,10 @@ function clearAlarms() {
 }
 
 /* ===============================
-   图表逻辑 (原有主图表 + 新增子图表)
+   图表逻辑
 =============================== */
 const chartRef = ref<HTMLDivElement>();
 const subChartRef = ref<HTMLDivElement>();
-
-// 状态扩展（GlassCard标题右侧）
-const statusExtra = computed(() => {
-  return `<span style="color: ${alarmList.value.length > 0 ? '#ef4444' : '#10b981'}">
-    ${alarmList.value.length > 0 ? '⚠️ 存在告警' : '✅ 无异常'}
-  </span>`;
-});
 
 function selectFiber(id: number) {
   activeFiberId.value = id;
@@ -893,7 +954,6 @@ function selectFiber(id: number) {
   renderSubChart(id);
 }
 
-// 原有主图表（保持逻辑不变，适配多维度）
 function renderChart(fiberId: number) {
   if (!chartRef.value) return;
   if (!chart) {
@@ -976,7 +1036,6 @@ function renderChart(fiberId: number) {
   chart.setOption(option);
 }
 
-// 新增子图表：多维度对比趋势
 function renderSubChart(fiberId: number) {
   if (!subChartRef.value) return;
   if (!subChart) {
@@ -988,7 +1047,6 @@ function renderSubChart(fiberId: number) {
   if (!fiber) return;
 
   const xData = fiber.temperature.map((_, i) => i + 1);
-  // 归一化数据（0-100）用于对比
   const normalize = (data: number[], thresholds: any) => 
     data.map(val => ((val - thresholds.min) / (thresholds.max - thresholds.min)) * 100);
 
@@ -1060,13 +1118,9 @@ function renderSubChart(fiberId: number) {
   subChart.setOption(option);
 }
 
-/* ===============================
-   生命周期
-=============================== */
 onMounted(() => {
   initData();
   
-  // 初始化图表
   if (chartRef.value) {
     chart = echarts.init(chartRef.value);
     renderChart(activeFiberId.value);
@@ -1077,16 +1131,12 @@ onMounted(() => {
     renderSubChart(activeFiberId.value);
   }
 
-  // 监听窗口大小变化
   window.addEventListener('resize', () => {
     chart && chart.resize();
     subChart && subChart.resize();
   });
 
-  // 启动模拟
   updateSimulation();
-
-  // 新增：初始化GLB模型场景
   initGLBScene();
 });
 
@@ -1098,20 +1148,16 @@ onUnmounted(() => {
   });
   chart && chart.dispose();
   subChart && subChart.dispose();
-
-  // 新增：销毁GLB模型场景
   disposeGLBScene();
 });
 
-// 监听维度切换刷新样式
 watch(activeDimension, () => {
-  // 触发重新渲染光纤渐变
   fibers.value = [...fibers.value];
 });
 </script>
 
 <style scoped>
-/* 原有样式保留，新增以下样式 */
+/* 原有样式保留 */
 .status-panel {
   display: flex;
   align-items: center;
@@ -1295,7 +1341,6 @@ watch(activeDimension, () => {
   margin-left: 4px;
 }
 
-/* 原有样式 */
 .pipeline-wrap {
   display: flex;
   align-items: center;
@@ -1469,12 +1514,12 @@ watch(activeDimension, () => {
 .ctrl-btn.up .arrow { transform: rotate(-135deg); margin-top: 2px; }
 .ctrl-btn.down .arrow { transform: rotate(45deg); margin-bottom: 2px; }
 
-/* 新增：GLB模型容器样式 */
 .glb-model-container {
   position: relative;
   overflow: hidden;
   background-color: #1e293b;
 }
+
 .alarm-handle-content {
   color: #e2e8f0;
   font-size: 14px;
@@ -1482,6 +1527,57 @@ watch(activeDimension, () => {
 .alarm-handle-content p {
   margin: 8px 0;
 }
+
+/* ==================== 新增：预测面板样式 ==================== */
+.prediction-panel {
+  border: 1px solid rgba(245, 158, 11, 0.3); /* Amber border */
+  background: rgba(245, 158, 11, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.prediction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.prediction-card {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 6px;
+  padding: 10px;
+  transition: all 0.3s ease;
+}
+
+.prediction-card:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(245, 158, 11, 0.4);
+  transform: translateX(4px);
+}
+
+.prediction-card.dispatched {
+  opacity: 0.7;
+  border-color: rgba(16, 185, 129, 0.3); /* Emerald border */
+}
+
+.pred-icon-box {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 8px;
+  margin-right: 12px;
+}
+
+/* Element Plus 覆盖样式 */
 :deep(.el-radio-button__inner) {
   background-color: #1e293b;
   border-color: #475569;
@@ -1507,5 +1603,15 @@ watch(activeDimension, () => {
 }
 :deep(.el-dialog__footer) {
   border-top: 1px solid #334155;
+}
+:deep(.el-notification) {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+}
+:deep(.el-notification__title) {
+  color: #e2e8f0;
+}
+:deep(.el-notification__content) {
+  color: #94a3b8;
 }
 </style>

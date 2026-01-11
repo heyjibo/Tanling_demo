@@ -20,11 +20,16 @@
         <div>
           <h1 class="text-slate-100 font-bold text-xl tracking-wide font-sans">水泵组 #01 - 声纹特征监测终端</h1>
           <div class="flex items-center gap-2 text-xs text-slate-400 font-mono mt-0.5">
+            <!-- 状态指示灯：异常时变红 -->
             <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" 
+                :class="isAbnormal ? 'bg-red-500' : 'bg-green-400'"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2"
+                :class="isAbnormal ? 'bg-red-500' : 'bg-green-500'"></span>
             </span>
-            <span class="text-green-400 font-bold">SYSTEM ONLINE</span>
+            <span class="font-bold" :class="isAbnormal ? 'text-red-500 animate-pulse' : 'text-green-400'">
+              {{ isAbnormal ? 'CRITICAL ALERT' : 'SYSTEM ONLINE' }}
+            </span>
             <span class="mx-1 text-slate-600">|</span>
             <span>{{ currentTime }}</span>
           </div>
@@ -32,6 +37,14 @@
       </div>
       <!-- 右侧状态指示 -->
       <div class="flex gap-8 pr-4">
+        <div class="text-right">
+          <div class="text-[10px] uppercase text-slate-500 tracking-wider">Health Score</div>
+          <!-- 健康分联动 -->
+          <div class="font-mono font-bold text-lg leading-none transition-colors duration-1000"
+            :class="healthScore < 60 ? 'text-red-500' : 'text-green-400'">
+            {{ healthScore.toFixed(0) }}<span class="text-sm">/100</span>
+          </div>
+        </div>
         <div class="text-right">
           <div class="text-[10px] uppercase text-slate-500 tracking-wider">Sample Rate</div>
           <div class="text-cyan-400 font-mono font-bold text-lg leading-none">48.0 <span class="text-sm">kHz</span></div>
@@ -48,70 +61,126 @@
       
       <!-- [左侧] 设备信息与现场实景 (30%) -->
       <GlassCard class="w-[30%] flex flex-col gap-3 min-h-0 !p-3">
-        <!-- 1. 设备状态卡片 (紧凑模式) -->
+        
+        <!-- 1. 设备状态卡片 -->
         <div class="flex-none bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4 rounded-lg border border-slate-700/50 shadow-lg">
           <div class="flex justify-between items-start mb-3">
             <div>
               <div class="text-slate-100 font-bold text-lg">主电机监测点</div>
               <div class="text-xs text-slate-500 font-mono mt-1">ID: SWJC-NXP-ROA-01</div>
             </div>
-            <div class="px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold animate-pulse">
-              RUNNING
+            <div class="px-2 py-1 rounded border text-xs font-bold animate-pulse transition-colors duration-500"
+              :class="isAbnormal ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-green-500/10 border-green-500/20 text-green-400'">
+              {{ isAbnormal ? 'ABNORMAL' : 'RUNNING' }}
             </div>
           </div>
           
           <div class="grid grid-cols-2 gap-2 text-sm text-slate-400 font-mono">
              <div class="p-2 bg-black/20 rounded border border-slate-700/30">
                <div class="text-[10px] text-slate-500 mb-0.5">温度 (Temp)</div>
-               <div class="text-slate-200 font-bold text-base">42.5<span class="text-xs font-normal text-slate-500 ml-1">°C</span></div>
+               <div class="font-bold text-base transition-colors duration-500" :class="isAbnormal ? 'text-amber-400' : 'text-slate-200'">
+                 {{ currentTemp.toFixed(1) }}<span class="text-xs font-normal text-slate-500 ml-1">°C</span>
+               </div>
              </div>
              <div class="p-2 bg-black/20 rounded border border-slate-700/30">
                <div class="text-[10px] text-slate-500 mb-0.5">震动 (Vib)</div>
-               <div class="text-slate-200 font-bold text-base">2.4<span class="text-xs font-normal text-slate-500 ml-1">mm/s</span></div>
-             </div>
-             <div class="col-span-2 p-2 bg-black/20 rounded border border-slate-700/30 flex justify-between items-center">
-               <span class="text-xs text-slate-500">信号质量</span>
-               <div class="flex gap-1 items-end h-2.5">
-                  <div class="w-1 h-[40%] bg-cyan-500 rounded-sm"></div>
-                  <div class="w-1 h-[60%] bg-cyan-500 rounded-sm"></div>
-                  <div class="w-1 h-[80%] bg-cyan-500 rounded-sm"></div>
-                  <div class="w-1 h-full bg-cyan-500 rounded-sm"></div>
-                  <div class="w-1 h-full bg-slate-700 rounded-sm"></div>
+               <div class="font-bold text-base transition-colors duration-500" :class="isAbnormal ? 'text-red-400' : 'text-slate-200'">
+                 {{ currentVib.toFixed(2) }}<span class="text-xs font-normal text-slate-500 ml-1">mm/s</span>
                </div>
              </div>
           </div>
         </div>
 
-        <!-- 2. 拓扑示意图 (高度固定，标记常驻) -->
+        <!-- ==================== 新增：AI 智能预警面板 ==================== -->
+        <div v-if="isAbnormal" class="flex-none bg-amber-900/10 border border-amber-500/30 rounded-lg p-3 relative overflow-hidden animate-[fadeIn_0.5s_ease-out]">
+            <div class="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+            <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center gap-2 text-amber-500">
+                    <el-icon class="animate-bounce"><WarningFilled /></el-icon>
+                    <span class="font-bold text-sm">AI 趋势预警</span>
+                </div>
+                <span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    置信度 94%
+                </span>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400">异常类型:</span>
+                    <span class="text-slate-100 font-bold">{{ predictionData.type }}</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400">异常位置:</span>
+                    <span class="text-red-400 font-bold underline decoration-red-500/50 underline-offset-2">{{ predictionData.location }}</span>
+                </div>
+                <div class="bg-black/20 rounded p-2 border border-amber-500/20">
+                    <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>预计严重故障倒计时</span>
+                        <span class="text-red-400 font-mono font-bold">{{ predictionData.countdown }}</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-amber-500 to-red-500 w-[85%] animate-[pulse_2s_infinite]"></div>
+                    </div>
+                </div>
+                
+                <div class="pt-1">
+                    <button 
+                        v-if="!predictionData.isDispatched"
+                        @click="handleDispatch"
+                        class="w-full py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded transition-colors flex items-center justify-center gap-2"
+                    >
+                        <el-icon><Position /></el-icon> 立即派发检修工单
+                    </button>
+                    <div v-else class="w-full py-1.5 bg-green-500/10 border border-green-500/30 text-green-400 text-xs rounded flex items-center justify-center gap-2">
+                        <el-icon><CircleCheckFilled /></el-icon> 工单已派发 (WO-{{ predictionData.orderId }})
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 正常状态下的占位面板 -->
+        <div v-else class="flex-none bg-slate-800/30 border border-slate-700/30 rounded-lg p-3 flex flex-col items-center justify-center h-[160px] text-slate-500 gap-2">
+            <el-icon :size="24" class="opacity-50"><Cpu /></el-icon>
+            <span class="text-xs">AI 诊断模型运行中...</span>
+            <span class="text-[10px] opacity-70">未发现明显声学异常特征</span>
+        </div>
+        <!-- ==================== 结束新增区域 ==================== -->
+
+        <!-- 2. 拓扑示意图 (高亮异常节点) -->
         <div class="flex-none h-[28%] bg-slate-800/50 rounded-lg border border-slate-700/50 relative overflow-hidden flex flex-col">
            <div class="absolute top-2 left-3 text-xs text-slate-400 font-bold z-10 uppercase tracking-wider">Sensor Topology</div>
            <div class="relative w-full h-full p-4 flex items-center justify-center">
              <img src="/src/assets/images/pump_swzd.svg" class="w-full h-full object-contain opacity-80 drop-shadow-2xl" alt="Topology" />
              <template v-for="marker in sensorMarkers" :key="marker.id">
                <div 
-                 class="absolute flex flex-col items-center justify-center cursor-pointer"
+                 class="absolute flex flex-col items-center justify-center cursor-pointer transition-all duration-300"
+                 :class="{'scale-125 z-20': isAbnormal && marker.id === 3}"
                  :style="{ left: marker.x, top: marker.y, transform: 'translate(-50%, -50%)' }"
                >
-                 <!-- 标记常驻显示 -->
-                 <div class="bg-slate-900/80 backdrop-blur-sm text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-600/50 mb-1 whitespace-nowrap z-20 shadow-lg">
+                 <!-- 异常时，对应的节点显示名称 -->
+                 <div v-if="isAbnormal && marker.id === 3" class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg mb-1 animate-bounce">
+                    ALERT
+                 </div>
+                 <div class="bg-slate-900/80 backdrop-blur-sm text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-600/50 mb-1 whitespace-nowrap z-20 shadow-lg" v-else>
                    {{ marker.name }}
                  </div>
+                 
                  <div class="relative w-3 h-3">
-                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                   <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-slate-800"></span>
+                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                    :class="(isAbnormal && marker.id === 3) ? 'bg-red-500 duration-500' : 'bg-green-400'"></span>
+                   <span class="relative inline-flex rounded-full h-3 w-3 border-2 border-slate-800"
+                    :class="(isAbnormal && marker.id === 3) ? 'bg-red-500' : 'bg-green-500'"></span>
                  </div>
                </div>
              </template>
            </div>
         </div>
 
-        <!-- 3. 现场实拍图 (Flex-1 占满剩余空间，object-cover 保证填满) -->
+        <!-- 3. 现场实拍图 -->
         <div class="flex-1 bg-slate-800/50 rounded-lg border border-slate-700/50 relative overflow-hidden group">
-           <!-- 使用 object-cover 配合 object-bottom 确保下方关键区域不被裁切 -->
            <img src="/src/assets/images/zd.png" class="w-full h-full object-cover object-bottom opacity-80 group-hover:opacity-100 transition-all duration-700" alt="Site Photo" />
            <div class="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent pointer-events-none"></div>
            <div class="absolute bottom-3 left-3 flex items-center gap-2 bg-black/40 px-2 py-1 rounded backdrop-blur-sm border border-white/10">
-             <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+             <div class="w-2 h-2 rounded-full animate-pulse" :class="isAbnormal ? 'bg-red-500' : 'bg-green-500'"></div>
              <span class="text-xs text-slate-200 font-bold uppercase tracking-wider drop-shadow-md">Live Camera</span>
            </div>
         </div>
@@ -121,11 +190,16 @@
       <GlassCard class="w-[70%] flex flex-col min-h-0 bg-slate-800/30 gap-3 !p-3">
         
         <!-- R1. 实时波形 -->
-        <div class="h-[30%] flex flex-col bg-slate-900/40 rounded border border-slate-700/30 p-2 overflow-hidden">
-           <div class="flex justify-between items-center px-2 mb-1 border-b border-slate-800 pb-2">
+        <div class="h-[30%] flex flex-col bg-slate-900/40 rounded border border-slate-700/30 p-2 overflow-hidden relative transition-colors duration-300"
+             :class="isAbnormal ? 'border-red-500/30 bg-red-900/10' : ''">
+           
+           <div class="flex justify-between items-center px-2 mb-1 border-b border-slate-800 pb-2 z-10">
              <div class="flex items-center gap-2">
                <el-icon class="text-cyan-500"><Histogram /></el-icon>
                <span class="text-sm font-bold text-slate-300">声纹特征</span>
+               <span v-if="isAbnormal" class="ml-2 px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-mono border border-red-500/30 animate-pulse">
+                 ANOMALY DETECTED
+               </span>
              </div>
              <div class="flex items-center gap-4">
                <el-button link size="small" @click="resetControls" class="!text-slate-500 hover:!text-cyan-400">
@@ -159,11 +233,14 @@
 
         <!-- R2. 仪表盘 + 热力图 -->
         <div class="h-[35%] flex gap-3 min-h-0">
-           <!-- 仪表盘 (已优化：数据70-90，数值下移) -->
-           <div class="flex-1 bg-slate-900/40 rounded border border-slate-700/30 p-2 flex flex-col relative overflow-hidden">
+           <!-- 仪表盘 -->
+           <div class="flex-1 bg-slate-900/40 rounded border border-slate-700/30 p-2 flex flex-col relative overflow-hidden transition-colors duration-300"
+                :class="isAbnormal ? 'border-red-500/30' : ''">
               <div class="flex justify-between px-2 mb-1 z-10">
-                 <div class="text-xs text-slate-400 font-bold">声压级</div>
-                 <span class="text-[10px] font-mono" :class="controls.playing ? 'text-green-500' : 'text-yellow-500'">{{ controls.playing ? 'MONITORING' : 'PAUSED' }}</span>
+                 <div class="text-xs text-slate-400 font-bold">声压级 (SPL)</div>
+                 <span class="text-[10px] font-mono" :class="controls.playing ? (isAbnormal ? 'text-red-500 animate-pulse' : 'text-green-500') : 'text-yellow-500'">
+                    {{ controls.playing ? (isAbnormal ? 'HIGH NOISE' : 'MONITORING') : 'PAUSED' }}
+                 </span>
               </div>
               <div ref="gaugeChartRef" class="absolute inset-0 top-6"></div>
            </div>
@@ -178,10 +255,12 @@
         </div>
 
         <!-- R3. 1/3倍频程谱 -->
-        <div class="flex-1 bg-slate-900/40 rounded border border-slate-700/30 p-2 flex flex-col min-h-[180px]">
+        <div class="flex-1 bg-slate-900/40 rounded border border-slate-700/30 p-2 flex flex-col min-h-[180px] transition-colors duration-300"
+             :class="isAbnormal ? 'border-red-500/30' : ''">
            <div class="flex justify-between items-center px-2 h-8 border-b border-slate-800/50 mb-1">
              <div class="flex gap-2 items-baseline">
                <span class="text-sm font-bold text-slate-300">1/3 倍频程谱</span>
+               <span v-if="isAbnormal" class="text-[10px] text-amber-500 font-bold">高频异常突起</span>
              </div>
              <div class="flex gap-2 items-center">
                 <span class="text-[10px] text-cyan-500 font-mono opacity-70">{{ currentTime }}</span>
@@ -202,18 +281,37 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import GlassCard from '@/components/Common/GlassCard.vue'; 
-import { Monitor, Histogram, ArrowUp, ArrowDown, Microphone, Mute, RefreshLeft, Download } from '@element-plus/icons-vue';
+import { Monitor, Histogram, ArrowUp, ArrowDown, Microphone, Mute, RefreshLeft, Download, WarningFilled, Position, CircleCheckFilled, Cpu } from '@element-plus/icons-vue';
+import { ElNotification } from 'element-plus';
 import dayjs from 'dayjs';
 
 // ================= 状态与数据 =================
 const currentTime = ref(dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'));
 const controls = reactive({ playing: true, muted: false, amplitude: 1.0, offset: 0 });
 const emit = defineEmits(['back']);
-// 传感器标记
+
+// ================= 预警系统状态 =================
+const isAbnormal = ref(false); // 全局异常标志
+const healthScore = ref(98);   // 健康分
+const currentTemp = ref(42.5);
+const currentVib = ref(2.4);
+
+// 预测与工单数据
+const predictionData = reactive({
+    type: '流体气蚀 (Cavitation)',
+    location: '终端3 - 离心泵前段',
+    countdown: '42分15秒',
+    isDispatched: false,
+    orderId: ''
+});
+
+// 模拟触发异常的定时器
+let simulationTimer: any = null;
+
 const sensorMarkers = [
   { id: 1, name: '终端1', x: '63%', y: '25%' },
   { id: 2, name: '终端2', x: '63%', y: '50%' },
-  { id: 3, name: '终端3', x: '36%', y: '25%' },
+  { id: 3, name: '终端3', x: '36%', y: '25%' }, // 设定为故障点
   { id: 4, name: '终端4', x: '36%', y: '50%' },
   { id: 5, name: '终端5', x: '75%', y: '70%' },
 ];
@@ -225,13 +323,26 @@ const SPECTROGRAM_BINS = 80;
 const resetControls = () => { controls.playing = true; controls.muted = false; controls.amplitude = 1.0; controls.offset = 0; };
 const changeOffset = (val: number) => { controls.offset = parseFloat((controls.offset + val).toFixed(1)); };
 
+// 派发工单逻辑
+const handleDispatch = () => {
+    predictionData.isDispatched = true;
+    predictionData.orderId = Math.floor(Math.random() * 100000).toString();
+    ElNotification({
+        title: '工单派发成功',
+        message: `已向维修班组发送工单 (WO-${predictionData.orderId})
+请尽快前往 [${predictionData.location}] 检查。`,
+        type: 'success',
+        duration: 4000,
+        position: 'top-right'
+    });
+};
+
 // ================= DOM Refs =================
 const waveChartRef = ref<HTMLElement | null>(null);
 const gaugeChartRef = ref<HTMLElement | null>(null);
 const heatmapChartRef = ref<HTMLElement | null>(null);
 const barChartRef = ref<HTMLElement | null>(null);
 
-// 使用 shallowRef 或普通变量均可，但在 Unmount 时必须置空
 let waveChart: echarts.ECharts | null = null;
 let gaugeChart: echarts.ECharts | null = null;
 let heatmapChart: echarts.ECharts | null = null;
@@ -246,13 +357,13 @@ const initCharts = () => {
       animation: false,
       grid: { top: 5, bottom: 5, left: 0, right: 0 },
       xAxis: { type: 'category', show: false, boundaryGap: false, max: 200 },
-      yAxis: { type: 'value', min: -4, max: 4, show: false }, 
+yAxis: { type: 'value', min: -4, max: 4, show: false }, 
       series: [{ 
         type: 'line', 
         data: new Array(200).fill(0), 
         showSymbol: false, 
         smooth: true, 
-        lineStyle: { width: 2, color: '#22d3ee' },
+        lineStyle: { width: 2, color: '#22d3ee' }, // 初始青色
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: 'rgba(34, 211, 238, 0.2)' },
@@ -263,7 +374,7 @@ const initCharts = () => {
     });
   }
 
-  // 2. 仪表盘 (关键修改：数值下移，数据逻辑在loop中控制)
+  // 2. 仪表盘
   if (gaugeChartRef.value) {
     gaugeChart = echarts.init(gaugeChartRef.value);
     
@@ -271,11 +382,11 @@ const initCharts = () => {
       type: 'gauge',
       startAngle: 210, 
       endAngle: -30,
-      min: 0, max: 100,
-      radius: '65%', // 适中大小，避免堆叠
+      min: 0, max: 120, // 扩大范围以容纳异常值
+      radius: '65%', 
       splitNumber: 5,
       axisLine: { 
-        lineStyle: { width: 6, color: [[1, 'rgba(255,255,255,0.08)']] } 
+        lineStyle: { width: 6, color: [[0.7, 'rgba(255,255,255,0.08)'], [1, '#ef4444']] } // 后30%变红
       },
       progress: { show: true, width: 6, roundCap: true },
       pointer: { show: true, length: '65%', width: 4, itemStyle: { color: 'auto' } },
@@ -283,18 +394,16 @@ const initCharts = () => {
       splitLine: { distance: 2, length: 5, lineStyle: { color: 'rgba(255,255,255,0.2)', width: 2 } },
       axisLabel: { show: false }, 
       anchor: { show: true, showAbove: true, size: 8, itemStyle: { borderWidth: 2, borderColor: '#fff', color: 'auto' } },
-      // 标题位置
       title: { 
         show: true, 
-        offsetCenter: [0, '135%'], // 避开数值，移到底部
+        offsetCenter: [0, '135%'], 
         fontSize: 12, 
         color: '#94a3b8', 
         fontWeight: 'normal' 
       },
-      // 数值位置 (关键修改：下移至 45%)
       detail: { 
         valueAnimation: true, 
-        offsetCenter: [0, '45%'], // 往下挪
+        offsetCenter: [0, '45%'], 
         fontSize: 20, 
         fontWeight: 'bold', 
         formatter: '{value}dB', 
@@ -374,7 +483,7 @@ const initCharts = () => {
         axisLine: { lineStyle: { color: '#334155' } }
       },
       yAxis: { 
-        type: 'value', min: -10, max: 90, interval: 20,
+        type: 'value', min: -10, max: 120, interval: 20,
         splitLine: { show: true, lineStyle: { color: '#334155', type: 'dashed', opacity: 0.3 } }, 
         axisLabel: { color: '#64748b', fontSize: 9 } 
       },
@@ -402,6 +511,7 @@ for(let t=0; t<HEAT_X; t++) heatMatrix[t] = new Array(SPECTROGRAM_BINS).fill(0);
 
 let phase = 0;
 let gaugeThrottle = 0; 
+let countdownTimer = 42 * 60 + 15; // 初始倒计时秒数
 
 const loop = () => {
   if (!waveChart) return; 
@@ -414,27 +524,84 @@ const loop = () => {
 
   phase += 0.2;
   const isMuted = controls.muted;
+  
+  // 模拟异常数据的权重因子
+  const anomalyWeight = isAbnormal.value ? 1 : 0;
 
-  // 1. 生成柱状图数据
+  // 更新数值面板
+  if (isAbnormal.value) {
+      if (healthScore.value > 45) healthScore.value -= 0.1;
+      if (currentTemp.value < 68) currentTemp.value += 0.05;
+      if (currentVib.value < 8.5) currentVib.value += 0.02;
+      
+      // 倒计时递减
+      if (phase % 10 < 0.2) { // 简单降频
+          countdownTimer--;
+          const m = Math.floor(countdownTimer / 60);
+          const s = countdownTimer % 60;
+          predictionData.countdown = `${m}分${s.toString().padStart(2, '0')}秒`;
+      }
+  } else {
+      if (healthScore.value < 98) healthScore.value += 0.5;
+      if (currentTemp.value > 42.5) currentTemp.value -= 0.1;
+      if (currentVib.value > 2.4) currentVib.value -= 0.05;
+      countdownTimer = 42 * 60 + 15; // 重置
+  }
+
+  // 1. 生成柱状图数据 (频谱)
   const freqData = categories.map((_, i) => {
     if (isMuted) return 0;
+    
     let base = 70 - i * 1.5; 
     let fluctuation = Math.sin(phase * 0.5 + i * 0.8) * 5 + (Math.random() - 0.5) * 8;
-    if (i >= 16 && i <= 18) fluctuation += 15 * (Math.sin(phase) + 1);
-    return Math.max(0, Math.min(100, base + fluctuation));
+    
+    // 异常模式：高频段 (Index 20-28) 剧烈突起
+    if (isAbnormal.value && i > 20 && i < 28) {
+        fluctuation += 50 + Math.random() * 20;
+    }
+    
+    // 正常模式：中频段 (Index 16-18) 轻微突起
+    if (!isAbnormal.value && i >= 16 && i <= 18) {
+        fluctuation += 15 * (Math.sin(phase) + 1);
+    }
+    
+    return Math.max(0, Math.min(120, base + fluctuation));
   });
+  
+  // 更新柱状图颜色（异常变红）
+  if (barChart) {
+      barChart.setOption({
+          series: [{ 
+              data: freqData,
+              itemStyle: { 
+                  color: isAbnormal.value 
+                    ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#ef4444' }, { offset: 1, color: '#b91c1c' }])
+                    : new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#6366f1' }, { offset: 1, color: '#3b82f6' }])
+              }
+          }]
+      });
+  }
 
   // 2. 生成热力图数据
   const currentMelColumn = new Array(SPECTROGRAM_BINS).fill(0).map((_, yIndex) => {
     if (isMuted) return 0;
     let val = Math.random() * 10;
+    
+    // 正常特征线
     const lines = [20, 35, 60];
     lines.forEach(lineY => {
        const dist = Math.abs(yIndex - lineY);
        if (dist < 3) val += (50 - dist * 10) * (0.6 + 0.4 * Math.sin(phase * 0.2));
     });
+    
+    // 异常特征：全频段噪点增加，高频出现亮斑
+    if (isAbnormal.value) {
+        val += 20; // 底噪升高
+        if (yIndex > 65) val += 60; // 高频亮斑
+    }
+
     if (Math.random() > 0.99) val += 30;
-    return Math.min(80, val);
+    return Math.min(100, val); // 这里稍微调高最大值以便显示更亮
   });
 
   heatMatrix.shift(); 
@@ -452,45 +619,79 @@ const loop = () => {
   if (isMuted) {
     waveBuffer.push(0);
   } else {
+    // 正常波形
     let raw = Math.sin(phase) * 1.5 + Math.sin(phase * 3.5) * 0.5 + (Math.random() - 0.5) * 0.4;
+    
+    // 异常波形：叠加高频杂波
+    if (isAbnormal.value) {
+        raw += (Math.random() - 0.5) * 5.0; // 幅度大增
+    }
+    
     waveBuffer.push((raw * controls.amplitude) + controls.offset);
+  }
+  
+  // 更新波形颜色（异常变红）
+  if (waveChart) {
+      waveChart.setOption({ 
+          series: [{ 
+              data: waveBuffer,
+              lineStyle: { color: isAbnormal.value ? '#ef4444' : '#22d3ee' },
+              areaStyle: {
+                  color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: isAbnormal.value ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 211, 238, 0.2)' },
+                    { offset: 1, color: 'rgba(0,0,0,0)' }
+                  ])
+              }
+          }] 
+      });
   }
 
   // 4. 更新图表
   currentTime.value = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-  
-  if (waveChart) waveChart.setOption({ series: [{ data: waveBuffer }] });
-  if (barChart) barChart.setOption({ series: [{ data: freqData }] });
   if (heatmapChart) heatmapChart.setOption({ series: [{ data: flatHeatData }] });
   
-  // 5. 仪表盘独立更新逻辑 (严格限制在 70-90)
+  // 5. 仪表盘独立更新逻辑 (数值增加到100+以示警告)
   if (gaugeChart) {
     gaugeThrottle++;
     if (gaugeThrottle > 20) {
       gaugeThrottle = 0;
       
-      // 基准值设为 80，波动幅度控制在 +/- 10 以内
-      const baseEnergy = 80; 
+      const baseVal = isAbnormal.value ? 105 : 75; // 异常时基准 105dB
       
       let valA = 0, valC = 0, valZ = 0;
 
       if (!isMuted) {
         // 计算随机波动
-        const rawA = baseEnergy + Math.sin(phase * 0.3) * 5 + (Math.random() - 0.5) * 8;
-        const rawC = baseEnergy + Math.cos(phase * 0.2) * 4 + (Math.random() - 0.5) * 6;
-        const rawZ = baseEnergy + Math.sin(phase * 0.5) * 6 + (Math.random() - 0.5) * 10;
+        const rawA = baseVal + Math.sin(phase * 0.3) * 5 + (Math.random() - 0.5) * 8;
+        const rawC = baseVal + Math.cos(phase * 0.2) * 4 + (Math.random() - 0.5) * 6;
+        const rawZ = baseVal + Math.sin(phase * 0.5) * 6 + (Math.random() - 0.5) * 10;
 
-        // 强制 Clamp 到 70-90
-        valA = Math.max(70, Math.min(90, rawA));
-        valC = Math.max(70, Math.min(90, rawC));
-        valZ = Math.max(70, Math.min(90, rawZ));
+        valA = Math.max(0, Math.min(120, rawA));
+        valC = Math.max(0, Math.min(120, rawC));
+        valZ = Math.max(0, Math.min(120, rawZ));
       }
+      
+      // 异常状态颜色
+      const detailColor = isAbnormal.value ? '#ef4444' : undefined;
+      const pointerColor = isAbnormal.value ? '#ef4444' : 'auto';
 
       gaugeChart.setOption({
         series: [
-          { data: [{ value: valA.toFixed(1), name: 'A计权' }] },
-          { data: [{ value: valC.toFixed(1), name: 'C计权' }] },
-          { data: [{ value: valZ.toFixed(1), name: 'Z计权' }] }
+          { 
+              data: [{ value: valA.toFixed(1), name: 'A计权' }],
+              detail: { color: detailColor || '#4ade80' },
+              pointer: { itemStyle: { color: pointerColor } }
+          },
+          { 
+              data: [{ value: valC.toFixed(1), name: 'C计权' }],
+              detail: { color: detailColor || '#22d3ee' },
+              pointer: { itemStyle: { color: pointerColor } }
+          },
+          { 
+              data: [{ value: valZ.toFixed(1), name: 'Z计权' }],
+              detail: { color: detailColor || '#f472b6' },
+              pointer: { itemStyle: { color: pointerColor } }
+          }
         ]
       });
     }
@@ -514,6 +715,15 @@ onMounted(() => {
     initCharts();
     loop(); 
     
+    // 启动模拟逻辑：每 10秒 自动切换一次异常/正常状态
+    simulationTimer = setInterval(() => {
+        isAbnormal.value = !isAbnormal.value;
+        // 如果切换回正常，重置工单状态以便下次演示
+        if (!isAbnormal.value) {
+            predictionData.isDispatched = false;
+        }
+    }, 10000);
+    
     resizeObserver = new ResizeObserver(() => {
         requestAnimationFrame(() => {
             if (waveChart) waveChart.resize();
@@ -533,6 +743,7 @@ onMounted(() => {
 onUnmounted(() => {
   cancelAnimationFrame(animationFrameId);
   window.removeEventListener('resize', handleWindowResize);
+  if (simulationTimer) clearInterval(simulationTimer);
   
   if (resizeObserver) {
     resizeObserver.disconnect();
@@ -575,5 +786,10 @@ onUnmounted(() => {
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
