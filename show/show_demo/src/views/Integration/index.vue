@@ -43,33 +43,33 @@
                 <div
                   class="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center group-hover:rotate-12 transition-transform duration-500"
                 >
-                  <span class="text-4xl">📋</span>
+                  <span class="text-4xl">📊</span>
                 </div>
                 <div class="ml-6">
                   <h3
                     class="text-3xl font-bold text-slate-200 mb-2 group-hover:text-cyan-300 transition-colors"
                   >
-                    项目与算量报价管理
+                    管道状态实时监控
                   </h3>
                   <div class="flex items-center">
                     <span
                       class="px-3 py-1 bg-cyan-900/30 text-cyan-300 rounded-full text-sm font-medium"
-                      >新建项目</span
+                      >实时数据</span
                     >
                     <span class="mx-2 text-slate-500">•</span>
                     <span
                       class="px-3 py-1 bg-cyan-900/30 text-cyan-300 rounded-full text-sm font-medium"
-                      >报价算量</span
+                      >位移监测</span
                     >
                   </div>
                 </div>
               </div>
               <p class="text-slate-400 text-lg mb-8 leading-relaxed border-l-4 border-cyan-500/30 pl-4">
-                支持项目创建（防潮方式配置：玛蹄脂+玻璃布/防潮卷材）、传统保冷算量报价编制，覆盖管径/结构/管外径/绝热层等多维度数据录入，支持批量算量与报价清单生成。
+                实时采集一代/二代管道温度、压力、流量数据，同步监测环境仪（风速/温湿度/CO₂）、位移传感器等关键指标，可视化展示管道运行状态。
               </p>
               <div class="flex items-center justify-between pt-6 border-t border-slate-700/50">
                 <div class="text-sm text-slate-500">
-                  已创建项目: <span class="text-cyan-400 font-bold">3 个</span>
+                  监测点位: <span class="text-cyan-400 font-bold">7 个</span>
                 </div>
                 <div class="flex items-center space-x-3 group-hover:space-x-4 transition-all duration-300">
                   <span class="text-slate-400 group-hover:text-slate-300">进入系统</span>
@@ -187,7 +187,7 @@
 
         <!-- 页脚 - 替换为保冷算量报价系统信息 -->
         <div class="mt-12 text-center text-slate-500 text-sm">
-          管道保冷算量报价管理系统 v2.1.0 • © 2024 工业管道工程 • 数据更新时间: {{ currentDate }}
+          管道保冷算量报价管理系统 v2.1.0 • 数据更新时间: {{ currentDate }}
         </div>
       </div>
     </div>

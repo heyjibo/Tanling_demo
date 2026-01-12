@@ -1,909 +1,790 @@
 <template>
-  <div class="h-full flex flex-col gap-4 p-4">
-    <!-- ==================== 0. 顶部全局切换栏 ==================== -->
-    <div class="mb-6">
-      <button 
-        @click="$emit('back')"
-        class="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors group"
-      >
-        <svg class="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        返回主页
-      </button>
-    </div>
-
-    <GlassCard class="flex-none !p-0 bg-slate-800/80 overflow-hidden">
-      <div class="flex items-center justify-between w-full p-3">
-        <!-- 左侧：Logo 与标题 -->
+  <div class="h-screen w-full bg-[#020617] text-slate-200 font-sans flex flex-col overflow-hidden selection:bg-cyan-500 selection:text-white">
+    <!-- ==================== 0. 顶部全局导航栏 ==================== -->
+    <div class="flex-none h-16 bg-slate-900/90 border-b border-slate-700/60 z-50 backdrop-blur-md">
+      <div class="flex items-center justify-between w-full h-full px-6">
+        <!-- 左侧：平台标识 -->
         <div class="flex items-center gap-4">
-          <div class="relative">
-            <el-avatar 
-              :size="40" 
-              :icon="isAdmin ? 'Management' : 'UserFilled'" 
-              :class="isAdmin ? 'bg-purple-600' : 'bg-cyan-600'" 
-              class="shadow-lg shadow-cyan-500/20"
-            />
-            <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full"></div>
+          <div class="relative group cursor-pointer">
+            <div class="absolute inset-0 bg-cyan-500 blur opacity-20 group-hover:opacity-40 transition-opacity rounded"></div>
+            <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded border border-slate-600 relative z-10 flex items-center justify-center shadow-lg">
+              <el-icon :size="24" color="#fff"><DataLine /></el-icon>
+            </div>
           </div>
           <div class="flex flex-col">
-            <span class="text-slate-100 font-bold text-lg leading-tight tracking-wide">
-              {{ isAdmin ? '管理员控制台' : '室内定位 - 个人终端' }}
-            </span>
-            <span class="text-slate-400 text-xs font-mono">
-              {{ isAdmin ? 'SYSTEM: ADMIN_ROOT' : 'ID: USER_8842_X' }}
-            </span>
-          </div>
-        </div>
-
-        <!-- 右侧：切换按钮 -->
-        <el-button 
-          :type="isAdmin ? 'primary' : 'warning'" 
-          @click="switchMode" 
-          round
-          class="ml-auto shadow-md transition-all hover:scale-105"
-        >
-          <el-icon class="mr-2"><Switch /></el-icon>
-          <span class="font-bold">切换到{{ isAdmin ? '个人端' : '管理端' }}</span>
-        </el-button>
-      </div>
-    </GlassCard>
-
-    <!-- ==================== A. 个人端视图 ==================== -->
-    <GlassCard v-if="!isAdmin" title="b) 超声波室内高精定位 " class="flex-1 flex flex-col min-h-0">
-      <!-- 1. 顶部控制栏 -->
-      <div class="flex-none flex justify-between items-center mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-        <div class="flex items-center gap-4">
-          <!-- 状态标签 -->
-          <el-tag v-if="!isHistoryMode" :type="collisionDetected ? 'danger' : 'success'" effect="dark" class="font-mono transition-colors duration-200">
-            {{ collisionDetected ? '避障修正' : '定位正常' }}
-          </el-tag>
-          <el-tag v-else type="warning" effect="dark" class="font-mono">
-            历史回放模式
-          </el-tag>
-          
-          <div class="text-xs text-slate-400 font-mono flex gap-3">
-            <span v-if="!isHistoryMode">X: {{ currentPos.x.toFixed(0) }}</span>
-            <span v-if="!isHistoryMode">Y: {{ currentPos.y.toFixed(0) }}</span>
-            <span v-if="!isHistoryMode">FPS: {{ fps }}</span>
-            <span v-else class="text-orange-400 font-bold">正在查看: {{ historyRangeLabel }}</span>
-          </div>
-        </div>
-        
-        <el-button-group>
-          <!-- 历史轨迹按钮 -->
-          <el-button type="primary" plain size="small" @click="openHistoryDialog" :disabled="isRunning">
-             <el-icon class="mr-1"><Clock /></el-icon> 历史轨迹
-          </el-button>
-          <el-button type="primary" size="small" @click="startSimulation" :disabled="isRunning || !isReady || isHistoryMode">
-            <el-icon class="mr-1"><VideoPlay /></el-icon> 启动
-          </el-button>
-          <el-button type="warning" size="small" @click="stopSimulation" :disabled="!isRunning">
-            <el-icon class="mr-1"><VideoPause /></el-icon> 暂停
-          </el-button>
-          <el-button type="info" size="small" @click="toggleTrajectory" :disabled="isHistoryMode">
-            <el-icon class="mr-1"><Share /></el-icon> {{ showTrajectory ? '隐藏轨迹' : '显示轨迹' }}
-          </el-button>
-          <el-button type="danger" size="small" @click="resetSimulation">
-            <el-icon class="mr-1"><RefreshRight /></el-icon> {{ isHistoryMode ? '退出回放' : '重置' }}
-          </el-button>
-        </el-button-group>
-      </div>
-
-      <!-- 地图容器 -->
-      <div 
-        class="relative flex-1 w-full min-h-[60vh] bg-[#0a0e17] rounded-xl overflow-hidden border border-slate-700 shadow-inner select-none" 
-        ref="containerRef"
-        v-loading="!mapLoaded"
-        element-loading-text="正在解析建筑结构..."
-        element-loading-background="rgba(10, 14, 23, 0.95)"
-        element-loading-spinner="el-icon-loading"
-      >
-        <!-- 网格背景 -->
-        <div class="absolute inset-0 pointer-events-none bg-grid opacity-10"></div>
-        
-        <!-- 1. SVG 地图显示层 -->
-        <div 
-          v-if="mapLoaded"
-          v-html="svgContent"
-          class="absolute inset-0 w-full h-full inner-svg-wrapper map-fade-in"
-        ></div>
-
-        <!-- 2. Canvas 轨迹层 -->
-        <canvas ref="canvasRef" class="absolute inset-0 pointer-events-none" style="z-index: 10;"></canvas>
-
-        <!-- 3. 动态定位小人 -->
-        <div 
-          class="absolute will-change-transform"
-          :style="{ transform: `translate(${currentPos.x}px, ${currentPos.y}px)`, zIndex: 20 }"
-          v-show="isReady"
-        >
-          <!-- 偏移校正 div，确保中心对齐 -->
-          <div class="relative -top-2 -left-2 w-4 h-4 flex items-center justify-center">
-            <div class="absolute inset-0 rounded-full animate-ping bg-cyan-500/30 shadow-lg shadow-cyan-500/20"></div>
-            <div class="w-3 h-3 rounded-full border border-cyan-400 z-10 flex items-center justify-center bg-[#0a0e17] shadow-[0_0_8px_rgba(34,211,238,0.8)]">
-              <div class="w-1.5 h-1.5 rounded-full bg-cyan-400"></div>
+            <h1 class="text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+              会展中心高精度定位运营平台
+            </h1>
+            <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono uppercase">
+              <span class="px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-400 border border-cyan-800/50">Sim-Physics Engine</span>
+              <span class="px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400 border border-purple-800/50">Accuracy ±10cm</span>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 历史轨迹选择对话框 -->
-      <el-dialog v-model="historyDialogVisible" title="选择历史轨迹时间段" width="450px" class="glass-dialog" append-to-body>
-        <div class="flex flex-col gap-6 py-4">
-          <div class="flex flex-col items-center gap-3">
-            <span class="text-slate-400 text-sm">请选择回溯时间范围</span>
-            <el-radio-group v-model="selectedHistoryRange" size="large" class="w-full flex justify-center">
-              <el-radio-button label="1h">近1小时</el-radio-button>
-              <el-radio-button label="24h">近1天</el-radio-button>
-              <el-radio-button label="10d">近10天</el-radio-button>
-            </el-radio-group>
+        <!-- 中间：核心指标 (仅管理员可见) -->
+        <div v-if="isAdmin" class="hidden lg:flex gap-12">
+          <div class="text-center group cursor-default">
+            <div class="text-xs text-slate-500 group-hover:text-cyan-400 transition-colors">当前馆内人数</div>
+            <div class="text-2xl font-mono font-bold text-slate-200">{{ dashboardData.totalVisitors.toLocaleString() }}</div>
           </div>
-
-          <div class="bg-slate-800/50 p-5 rounded-lg border border-slate-700 text-sm text-slate-300 shadow-inner">
-            <h4 class="text-slate-200 font-bold mb-3 border-b border-slate-700 pb-2">数据统计预览</h4>
-            <p class="mb-2 flex justify-between"><span>记录数据点：</span> <span class="text-cyan-400 font-mono font-bold">{{ getHistoryStats.points }}</span></p>
-            <p class="mb-2 flex justify-between"><span>累计里程：</span> <span class="text-cyan-400 font-mono font-bold">{{ getHistoryStats.distance }} m</span></p>
-            <p class="flex justify-between"><span>主要活动区域：</span> <span class="text-cyan-400">A区办公区 / B区走廊</span></p>
+          <div class="text-center group cursor-default">
+            <div class="text-xs text-slate-500 group-hover:text-green-400 transition-colors">安保在岗</div>
+            <div class="text-2xl font-mono font-bold text-slate-200">{{ dashboardData.securityCount }} <span class="text-sm text-slate-500 font-normal">/ 24</span></div>
+          </div>
+          <div class="text-center group cursor-default">
+            <div class="text-xs text-slate-500 group-hover:text-red-400 transition-colors">今日告警</div>
+            <div class="text-2xl font-mono font-bold text-red-400 animate-pulse">{{ dashboardData.alerts }}</div>
           </div>
         </div>
-        <template #footer>
-          <span class="dialog-footer">
-            <el-button @click="historyDialogVisible = false">取消</el-button>
-            <el-button type="primary" @click="confirmHistoryView">
-              <el-icon class="mr-1"><VideoPlay /></el-icon> 加载并回放
-            </el-button>
-          </span>
-        </template>
-      </el-dialog>
-    </GlassCard>
 
-    <!-- ==================== B. 管理端视图 ==================== -->
-    <GlassCard v-else class="flex-1 overflow-hidden flex flex-col min-h-0">
-      <el-tabs v-model="activeAdminTab" class="h-full flex flex-col demo-tabs">
-        <!-- Tab 1: 用户管理 -->
-        <el-tab-pane label="用户管理" name="users" class="h-full">
-          <div class="flex flex-col h-full gap-4">
-            <div class="flex justify-between items-center">
-              <div class="flex gap-2">
-                <el-input v-model="searchQuery" placeholder="搜索用户..." prefix-icon="Search" class="w-64" />
-                <el-select v-model="filterStatus" placeholder="状态" class="w-32">
-                  <el-option label="全部" value="" />
-                  <el-option label="在线" value="online" />
-                  <el-option label="离线" value="offline" />
-                </el-select>
-              </div>
-              <el-button type="primary" @click="handleAddUser">
-                <el-icon class="mr-1"><Plus /></el-icon> 新增用户
-              </el-button>
-            </div>
-
-            <el-table :data="filteredUsers" style="width: 100%" height="100%" class="rounded-lg bg-transparent">
-              <el-table-column prop="id" label="ID" width="80" />
-              <el-table-column prop="name" label="用户名" width="150" />
-              <el-table-column label="状态" width="120">
-                <template #default="scope">
-                  <div class="flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full" :class="scope.row.status === 'online' ? 'bg-green-500' : 'bg-slate-500'"></div>
-                    <span :class="scope.row.status === 'online' ? 'text-green-400' : 'text-slate-400'">
-                      {{ scope.row.status === 'online' ? '在线' : '离线' }}
-                    </span>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column prop="lastActive" label="最后活跃时间" width="200" />
-              <el-table-column prop="device" label="设备ID" />
-              <el-table-column label="操作" width="250" fixed="right">
-                <template #default="scope">
-                  <el-button link type="primary" size="small" @click="viewHistory(scope.row)">
-                    <el-icon class="mr-1"><Location /></el-icon> 轨迹
-                  </el-button>
-                  <el-button link type="warning" size="small" @click="handleEditUser(scope.row)">
-                    <el-icon class="mr-1"><Edit /></el-icon> 编辑
-                  </el-button>
-                  <el-button link type="danger" size="small" @click="handleDeleteUser(scope.row)">
-                    <el-icon class="mr-1"><Delete /></el-icon> 删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+        <!-- 右侧：角色切换 -->
+        <div class="flex items-center gap-6">
+          <div class="text-right hidden sm:block">
+            <div class="text-sm font-bold text-slate-200">{{ isAdmin ? '运营指挥中心' : '观众/展商端' }}</div>
+            <div class="text-xs text-slate-500 font-mono">{{ currentTime }}</div>
           </div>
-        </el-tab-pane>
+          <el-button 
+            :type="isAdmin ? 'primary' : 'warning'" 
+            @click="switchMode" 
+            circle
+            size="large"
+            class="!border-0 shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:scale-105 transition-transform"
+          >
+            <el-icon :size="20"><Switch /></el-icon>
+          </el-button>
+        </div>
+      </div>
+    </div>
 
-        <!-- Tab 2: 全域监控 -->
-        <el-tab-pane label="全域监控" name="monitor" class="h-full">
-          <div class="flex h-full gap-4">
-             <!-- 左侧在线设备列表 -->
-             <div class="w-64 bg-slate-800/30 rounded-lg p-2 overflow-y-auto border border-slate-700/50">
-                <div class="text-sm text-slate-400 mb-2 px-2 font-bold">在线设备 ({{ mockUsers.filter(u=>u.status==='online').length }})</div>
-                <div 
-                  v-for="user in mockUsers.filter(u => u.status === 'online')" 
-                  :key="user.id"
-                  class="p-2 mb-1 rounded hover:bg-slate-700/50 cursor-pointer flex justify-between items-center transition-colors"
-                >
-                  <span class="text-slate-200 text-sm">{{ user.name }}</span>
-                  <el-tag size="small" type="success" effect="dark" class="scale-90">RF: -45dBm</el-tag>
-                </div>
+    <!-- ==================== 内容区域 ==================== -->
+    <div class="flex-1 p-4 min-h-0 overflow-hidden relative">
+      
+      <!-- ==================== A. 个人端视图 (智能导览/小程序体验) ==================== -->
+      <div v-if="!isAdmin" class="h-full w-full flex justify-center items-center relative animate-fade-in">
+        <!-- 手机外框 -->
+        <div class="w-[380px] h-[90vh] max-h-[850px] border-[8px] border-slate-800 rounded-[3rem] shadow-2xl bg-[#0f172a] overflow-hidden relative flex flex-col ring-1 ring-slate-700">
+           <!-- 手机刘海 -->
+           <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-slate-800 rounded-b-xl z-50"></div>
+           
+           <!-- App Header -->
+           <div class="h-16 bg-slate-900/95 backdrop-blur flex items-center px-5 pt-4 border-b border-slate-700/50 z-20 justify-between">
+             <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span class="text-sm font-bold text-slate-200">定位导航中...</span>
              </div>
+             <div class="text-xs text-slate-500 font-mono">FPS: {{ fps }}</div>
+           </div>
 
-             <!-- 右侧地图区域 -->
-             <div class="flex-1 bg-[#0a0e17] rounded-lg relative overflow-hidden border border-slate-700 flex items-center justify-center">
-                <div class="absolute inset-0 pointer-events-none bg-grid opacity-8"></div>
-                <div v-if="mapLoaded" class="w-full h-full select-none pointer-events-none admin-map-container">
-                   <div v-html="svgContent" class="w-full h-full inner-svg-wrapper admin-svg-style"></div>
-                </div>
-                <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
-                    <el-icon class="is-loading mb-2" :size="30"><Loading /></el-icon>
-                    <span class="text-slate-400">正在同步地图数据...</span>
-                </div>
-
-                <!-- 3. 用户定位标记 (演示用) -->
-                <div class="absolute inset-0" v-if="mapLoaded">
-                  <div class="absolute top-1/2 left-1/3 w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50 ring-1 ring-green-400/50">
-                    <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white whitespace-nowrap bg-slate-800/90 px-1.5 py-0.5 rounded shadow-md">张三</div>
-                  </div>
-                   <div class="absolute top-1/3 left-2/3 w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50 ring-1 ring-green-400/50">
-                    <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white whitespace-nowrap bg-slate-800/90 px-1.5 py-0.5 rounded shadow-md">李四</div>
-                  </div>
-                </div>
-
-                <div class="absolute bottom-4 right-4 text-slate-500 text-xs font-mono border border-slate-700 px-2 py-1 rounded bg-slate-800/70">
-                  LIVE MONITORING MODE
-                </div>
-             </div>
-          </div>
-        </el-tab-pane>
-
-        <!-- Tab 3: 地图配置 -->
-        <el-tab-pane label="地图配置" name="map" class="h-full">
-           <div class="flex flex-col items-center justify-center h-full gap-6">
-              <div class="w-full max-w-2xl bg-slate-800/50 p-8 rounded-xl border border-dashed border-slate-600 hover:border-cyan-500 transition-colors">
-                <el-upload
-                  class="upload-demo w-full"
-                  drag
-                  action="#"
-                  :auto-upload="false"
-                  :on-change="handleFileChange"
-                  accept=".dxf,.dwg,.svg"
-                  multiple
-                >
-                  <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                  <div class="el-upload__text text-slate-300">
-                    拖拽 CAD/SVG 文件 (.dxf, .dwg, .svg) 到此处或 <em>点击上传</em>
-                  </div>
-                  <template #tip>
-                    <div class="el-upload__tip text-slate-500 text-center mt-2">
-                      系统将自动识别 SVG 中的 &lt;rect&gt;, &lt;line&gt;, &lt;polygon&gt; 作为实体墙壁
-                    </div>
-                  </template>
-                </el-upload>
+           <!-- 手机地图区域 -->
+           <div class="flex-1 relative overflow-hidden bg-[#0b1121]" ref="userContainerRef">
+              <div v-if="mapLoaded" v-html="svgContent" class="w-full h-full opacity-50 grayscale contrast-125"></div>
+              <canvas ref="userCanvasRef" class="absolute inset-0 pointer-events-none"></canvas>
+              <!-- 用户自身定位点 -->
+              <div 
+                 class="absolute will-change-transform transition-transform duration-100 ease-linear z-30"
+                 :style="{ transform: `translate(${userPos.x}px, ${userPos.y}px)` }"
+               >
+                 <div class="relative -top-4 -left-4 w-8 h-8 flex items-center justify-center">
+                   <div class="absolute inset-0 rounded-full bg-cyan-500/30 animate-ping"></div>
+                   <div class="w-5 h-5 rounded-full border-2 border-white bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.8)] flex items-center justify-center relative z-10">
+                     <el-icon color="white" :size="10"><LocationFilled /></el-icon>
+                   </div>
+                   <!-- 方向箭头 -->
+                   <div class="absolute top-1/2 left-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-white transform -translate-x-1/2 -translate-y-full origin-bottom"
+                        :style="{ transform: `rotate(${userAngle + 90}deg) translate(0, -18px)` }">
+                   </div>
+                 </div>
               </div>
-              
-              <div class="w-full max-w-2xl">
-                <h3 class="text-slate-300 mb-3 font-bold">已加载地图</h3>
-                <el-table :data="mapFiles" style="width: 100%" class="bg-transparent">
-                  <el-table-column prop="name" label="文件名" />
-                  <el-table-column prop="size" label="大小" width="120" />
-                  <el-table-column prop="date" label="上传日期" width="180" />
-                  <el-table-column label="操作" width="120">
-                     <template #default>
-                        <el-button link type="danger">删除</el-button>
-                     </template>
-                  </el-table-column>
-                </el-table>
+              <!-- 终点标记 -->
+              <div class="absolute top-[33%] right-[25%] animate-bounce z-20">
+                 <el-icon :size="32" color="#f59e0b"><Place /></el-icon>
               </div>
            </div>
-        </el-tab-pane>
-      </el-tabs>
 
-      <!-- 用户编辑对话框 -->
-      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" class="glass-dialog" append-to-body>
-        <el-form :model="userForm" label-width="80px">
-          <el-form-item label="用户名">
-            <el-input v-model="userForm.name" />
-          </el-form-item>
-          <el-form-item label="设备ID">
-             <el-input v-model="userForm.device" />
-          </el-form-item>
-          <el-form-item label="权限">
-            <el-select v-model="userForm.role" class="w-full">
-              <el-option label="普通用户" value="user" />
-              <el-option label="管理员" value="admin" />
-            </el-select>
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <span class="dialog-footer">
-            <el-button @click="dialogVisible = false">取消</el-button>
-            <el-button type="primary" @click="saveUser">确认</el-button>
-          </span>
-        </template>
-      </el-dialog>
-      
-      <!-- 历史轨迹回放对话框 -->
-      <el-dialog v-model="historyVisible" title="用户历史轨迹回放" width="800px" class="glass-dialog" append-to-body>
-         <div class="h-[400px] bg-[#0a0e17] rounded border border-slate-700 flex items-center justify-center text-slate-400 relative">
-            <div class="absolute inset-0 pointer-events-none bg-grid opacity-10"></div>
-            <div class="text-center relative z-10">
-              <el-icon :size="40" class="mb-2 text-cyan-400"><VideoPlay /></el-icon>
-              <p class="text-slate-300">正在回放用户 [{{ currentUser?.name }}] 2026-01-05 的轨迹数据...</p>
+           <!-- 底部操作栏 -->
+           <div class="h-auto bg-slate-800/95 p-5 rounded-t-3xl shadow-[0_-5px_30px_rgba(0,0,0,0.6)] z-30 border-t border-slate-700/50">
+             <div class="flex justify-between items-center mb-5">
+               <div>
+                 <div class="text-xs text-slate-400 mb-1">距离目的地</div>
+                 <div class="text-2xl font-bold text-white font-mono">128 <span class="text-sm font-normal text-slate-400 font-sans">米</span></div>
+               </div>
+               <div class="text-right">
+                 <div class="text-xs text-slate-400 mb-1">预计耗时</div>
+                 <div class="text-2xl font-bold text-white font-mono">2 <span class="text-sm font-normal text-slate-400 font-sans">分钟</span></div>
+               </div>
+             </div>
+             <el-button type="primary" class="w-full !rounded-xl !h-12 !text-lg font-bold shadow-lg shadow-cyan-500/20 active:scale-95 transition-transform" @click="startNavigationDemo">
+               {{ isNavigating ? '重新规划路线' : '开始导航至 A区会议室' }}
+             </el-button>
+           </div>
+        </div>
+      </div>
+
+      <!-- ==================== B. 管理端视图 (运营指挥中心) ==================== -->
+      <div v-else class="h-full flex gap-4 animate-fade-in">
+        
+        <!-- 左侧：功能控制面板 (Fix: h-full) -->
+        <div class="w-80 flex-none flex flex-col gap-4 h-full">
+          
+          <!-- 1. 展会数据看板 -->
+          <div class="flex-none bg-slate-800/60 backdrop-blur rounded-xl border border-slate-700/50 p-4 shadow-xl">
+            <div class="flex items-center gap-2 mb-4 text-slate-200 font-bold border-b border-slate-700/50 pb-2">
+              <el-icon class="text-cyan-400"><DataAnalysis /></el-icon> 展会数据看板
             </div>
-         </div>
-      </el-dialog>
-    </GlassCard>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="bg-slate-900/50 p-3 rounded border border-slate-700/50 hover:border-cyan-500/30 transition-colors">
+                <div class="text-xs text-slate-400 mb-1">今日累计客流</div>
+                <div class="text-xl font-bold text-cyan-300 font-mono">12,450</div>
+              </div>
+              <div class="bg-slate-900/50 p-3 rounded border border-slate-700/50 hover:border-purple-500/30 transition-colors">
+                <div class="text-xs text-slate-400 mb-1">平均停留时长</div>
+                <div class="text-xl font-bold text-purple-300 font-mono">48m</div>
+              </div>
+            </div>
+            <div class="h-24 flex items-end justify-between gap-1 px-1 border-b border-slate-700/30 pb-2 mb-2">
+              <div v-for="(h, i) in [30, 45, 70, 90, 60, 40, 80, 50, 65, 85]" :key="i" 
+                   class="w-full bg-gradient-to-t from-cyan-900 to-cyan-500/80 rounded-t-sm transition-all duration-500 hover:opacity-100 opacity-70"
+                   :style="{ height: h + '%' }">
+              </div>
+            </div>
+            <div class="text-[10px] text-center text-slate-500">分时段人流热度 (09:00 - 17:00)</div>
+          </div>
+
+          <!-- 2. 图层控制 -->
+          <div class="flex-none bg-slate-800/60 backdrop-blur rounded-xl border border-slate-700/50 p-4 shadow-xl">
+             <div class="flex items-center gap-2 mb-4 text-slate-200 font-bold border-b border-slate-700/50 pb-2">
+              <el-icon class="text-cyan-400"><SetUp /></el-icon> 视图图层控制
+            </div>
+            <div class="flex flex-col gap-3">
+               <div class="flex items-center justify-between group">
+                 <span class="text-sm text-slate-300 group-hover:text-cyan-300 transition-colors">人员实时分布</span>
+                 <el-switch v-model="layers.people" active-color="#06b6d4" />
+               </div>
+               <div class="flex items-center justify-between group">
+                 <span class="text-sm text-slate-300 group-hover:text-amber-400 transition-colors">人流热力图</span>
+                 <el-switch v-model="layers.heatmap" active-color="#f59e0b" />
+               </div>
+               <div class="flex items-center justify-between group">
+                 <span class="text-sm text-slate-300 group-hover:text-red-400 transition-colors">电子围栏/禁区</span>
+                 <el-switch v-model="layers.fence" active-color="#ef4444" />
+               </div>
+               <div class="flex items-center justify-between group">
+                 <span class="text-sm text-slate-300 group-hover:text-green-400 transition-colors">安保巡检轨迹</span>
+                 <el-switch v-model="layers.patrol" active-color="#10b981" />
+               </div>
+            </div>
+          </div>
+
+          <!-- 3. 安全预警中心 (Fix: flex-1 + overflow-hidden) -->
+          <div class="flex-1 min-h-0 bg-slate-800/60 backdrop-blur rounded-xl border border-slate-700/50 p-4 shadow-xl flex flex-col overflow-hidden">
+             <div class="flex-none flex items-center justify-between mb-4 border-b border-slate-700/50 pb-2">
+                <div class="flex items-center gap-2 text-slate-200 font-bold">
+                  <el-icon class="text-red-500 animate-pulse"><Warning /></el-icon> 安全预警中心
+                </div>
+                <span class="text-xs bg-red-900/40 text-red-300 px-2 py-0.5 rounded-full border border-red-800">{{ alerts.length }}</span>
+             </div>
+             <!-- 告警列表容器 (Fix: overflow-y-auto) -->
+             <div class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                <transition-group name="list">
+                  <div v-for="(alert, idx) in alerts" :key="alert.id" 
+                       class="p-3 rounded-lg bg-red-950/30 border border-red-900/50 flex gap-3 items-start hover:bg-red-900/20 transition-colors group">
+                     <div class="mt-1 w-2 h-2 rounded-full bg-red-500 shrink-0 group-hover:animate-ping"></div>
+                     <div class="flex-1">
+                       <div class="text-xs text-red-300 font-bold mb-0.5">{{ alert.title }}</div>
+                       <div class="flex justify-between text-[10px] text-red-400/60 font-mono">
+                         <span>{{ alert.time }}</span>
+                         <span>{{ alert.loc }}</span>
+                       </div>
+                     </div>
+                  </div>
+                </transition-group>
+                <div v-if="alerts.length === 0" class="h-full flex flex-col items-center justify-center text-slate-500 gap-2 opacity-50">
+                  <el-icon :size="30"><CircleCheck /></el-icon>
+                  <span class="text-xs">系统运行正常</span>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <!-- 右侧：核心地图可视区 -->
+        <div class="flex-1 bg-[#0f172a] rounded-xl border border-slate-700/50 relative overflow-hidden shadow-2xl group flex flex-col">
+           <!-- 顶部悬浮图例 -->
+           <div class="absolute top-4 left-4 z-20 flex gap-4 bg-slate-900/90 p-3 rounded-lg border border-slate-700 backdrop-blur-md shadow-lg">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span><span class="text-xs text-slate-300 font-bold">观众</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]"></span><span class="text-xs text-slate-300 font-bold">参展商</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-green-500 border border-white shadow-[0_0_8px_rgba(74,222,128,0.5)]"></span><span class="text-xs text-slate-300 font-bold">安保人员</span></div>
+           </div>
+
+           <!-- 地图绘制容器 -->
+           <div ref="adminContainerRef" class="flex-1 relative cursor-crosshair overflow-hidden">
+              
+              <!-- 1. SVG 底图 -->
+              <div v-if="mapLoaded" v-html="svgContent" class="absolute inset-0 w-full h-full opacity-30 admin-map pointer-events-none select-none"></div>
+              
+              <!-- 2. 热力图层 (Canvas) -->
+              <canvas ref="heatmapCanvasRef" class="absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-700 ease-in-out" 
+                      :class="layers.heatmap ? 'opacity-80' : 'opacity-0'"></canvas>
+
+              <!-- 3. 电子围栏层 (SVG Overlay) -->
+              <svg v-if="layers.fence" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                 <rect :x="fence.x" :y="fence.y" :width="fence.w" :height="fence.h" 
+                       fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" stroke-width="2" stroke-dasharray="8,4"
+                       class="animate-pulse-slow" />
+                 <text :x="fence.x + 10" :y="fence.y + 24" fill="#ef4444" font-size="14" font-weight="bold" letter-spacing="2">RESTRICTED AREA</text>
+              </svg>
+
+              <!-- 4. 巡检轨迹层 (Canvas) -->
+              <canvas ref="patrolCanvasRef" 
+                      class="absolute inset-0 w-full h-full pointer-events-none z-10 transition-opacity duration-300"
+                      :class="layers.patrol ? 'opacity-100' : 'opacity-0'"></canvas>
+
+              <!-- 5. 人员实体层 (DOM) -->
+              <div v-if="layers.people" class="absolute inset-0 pointer-events-none z-20">
+                 <div v-for="p in crowd" :key="p.id" 
+                      class="absolute rounded-full transition-transform duration-100 ease-linear will-change-transform"
+                      :class="{
+                        'w-2 h-2 bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]': p.role === 'visitor',
+                        'w-2 h-2 bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]': p.role === 'exhibitor',
+                        'w-3.5 h-3.5 bg-green-500 border-2 border-slate-100 shadow-[0_0_10px_rgba(74,222,128,0.8)] z-30': p.role === 'staff'
+                      }"
+                      :style="{ 
+                        /* Fix 3: 使用 mapScale 乘以逻辑坐标，解决错位 */
+                        transform: `translate(${p.x * mapScale.x}px, ${p.y * mapScale.y}px)` 
+                      }">
+                      <div v-if="p.role === 'staff'" class="absolute -top-5 -left-4 text-[9px] text-green-300 font-bold whitespace-nowrap bg-slate-900/90 px-1.5 py-0.5 rounded border border-green-900/50">
+                        SEC-0{{p.id % 10}}
+                      </div>
+                 </div>
+              </div>
+
+           </div>
+
+           <!-- 底部操作条 -->
+           <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 bg-slate-900/80 p-2 rounded-2xl border border-slate-700/60 backdrop-blur-md z-40 shadow-2xl">
+              <el-tooltip content="重置视图" placement="top">
+                <el-button circle color="#334155" :icon="RefreshRight" @click="resetAdminView" />
+              </el-tooltip>
+              <el-tooltip content="模拟突发事件" placement="top">
+                <el-button type="danger" circle :icon="Warning" @click="triggerEmergency" class="animate-pulse" />
+              </el-tooltip>
+              <el-tooltip content="导出数据报表" placement="top">
+                <el-button type="primary" circle :icon="Download" />
+              </el-tooltip>
+           </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive, computed, nextTick } from 'vue';
-import GlassCard from '@/components/Common/GlassCard.vue';
+import { ref, onMounted, onUnmounted, reactive, nextTick } from 'vue';
 import { 
-  VideoPlay, VideoPause, RefreshRight, Share, 
-  Switch, UserFilled, Management, Plus, Search, 
-  Edit, Delete, Location, UploadFilled, Clock, Loading
+  Switch, DataLine, LocationFilled, Place, 
+  DataAnalysis, SetUp, Warning,
+  RefreshRight, Download, CircleCheck
 } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElNotification } from 'element-plus';
 
-// ======================= 1. 基础配置 =======================
-const emit = defineEmits(['back']);
+// ======================= 1. 全局状态 =======================
+const isAdmin = ref(true); 
+const currentTime = ref('');
 
-// 运动配置
-const CONFIG = { 
-  SPEED: 0.2,           
-  WANDER_FORCE: 0.1,    
-  MAX_TRAIL: 300 
+// 仪表盘数据
+const dashboardData = reactive({
+  totalVisitors: 12450,
+  securityCount: 18,
+  alerts: 2
+});
+
+// 图层控制
+const layers = reactive({
+  people: true,
+  heatmap: false,
+  fence: true,
+  patrol: false
+});
+
+// 地图缩放比例 (Fix 3: 用于同步 DOM 和 Canvas)
+const mapScale = reactive({ x: 1, y: 1 });
+
+// 告警队列
+const alerts = ref<{id: number, title: string, time: string, loc: string}[]>([
+  { id: 1, title: '非授权人员闯入', time: '13:02', loc: '核心机房 #01' },
+  { id: 2, title: '设备离线', time: '12:45', loc: 'B区网关' }
+]);
+
+// 地图相关 Ref
+const mapLoaded = ref(false);
+const svgContent = ref('');
+const adminContainerRef = ref<HTMLElement>();
+const userContainerRef = ref<HTMLElement>();
+const heatmapCanvasRef = ref<HTMLCanvasElement>();
+const patrolCanvasRef = ref<HTMLCanvasElement>();
+const userCanvasRef = ref<HTMLCanvasElement>();
+
+// ======================= 2. 模拟数据引擎 =======================
+
+type Person = { 
+  id: number, 
+  x: number, y: number, 
+  vx: number, vy: number, 
+  role: 'visitor'|'staff'|'exhibitor', 
+  path: {x:number, y:number}[] 
 };
 
-// ======================= 2. 全局状态 =======================
-const isAdmin = ref(false); 
-const containerRef = ref<HTMLElement | null>(null);
-const canvasRef = ref<HTMLCanvasElement | null>(null);
+const crowd = ref<Person[]>([]);
+const fence = { x: 620, y: 80, w: 180, h: 120 }; 
 
-const isRunning = ref(false);
-const isReady = ref(false);
-const showTrajectory = ref(true);
-const collisionDetected = ref(false); 
-const fps = ref(0);
-
-const currentPos = reactive({ x: 0, y: 0 });
-const velocity = reactive({ x: 0, y: 0, angle: 0 });
-
-const pathHistory = ref<{x: number, y: number}[]>([]); 
-
-const svgContent = ref('');
-const mapLoaded = ref(false);
-
-type Line = { x1: number, y1: number, x2: number, y2: number };
-const walls = ref<Line[]>([]);
-const mapTransform = reactive({ scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 });
-
-const isHistoryMode = ref(false);
-const historyDialogVisible = ref(false);
-const selectedHistoryRange = ref('1h');
-
-let animationFrameId: number;
-let resizeObserver: ResizeObserver | null = null;
+// 个人端模拟状态
+const userPos = reactive({ x: 100, y: 300 });
+const userAngle = ref(0);
+const isNavigating = ref(false);
+const fps = ref(60);
+let animId: number;
 let lastTime = 0;
 
-// ======================= 3. 核心：地图加载与墙体提取 =======================
-const loadMapFromFile = async () => {
-  mapLoaded.value = false;
-  isReady.value = false;
-  walls.value = []; 
-  
-  try {
-    const svgPath = '/src/assets/map/map.svg';
-    const response = await fetch(svgPath); 
-    if (!response.ok) throw new Error(`Status: ${response.status}`);
-    
-    let text = await response.text();
-    // 强制填满
-    text = text
-      .replace(/width=".*?"/g, 'width="100%"')
-      .replace(/height=".*?"/g, 'height="100%"')
-      .replace('<svg', '<svg preserveAspectRatio="xMidYMid meet"');
-    
-    svgContent.value = text;
-    mapLoaded.value = true;
-    nextTick(() => extractWallsFromSVG(text));
-  } catch (error) {
-    console.warn('加载失败，使用兜底SVG');
-    const fallback = `
-      <svg width="100%" height="100%" viewBox="0 0 1000 600">
-        <rect x="200" y="150" width="100" height="300" fill="none" stroke="#333"/>
-        <rect x="600" y="100" width="200" height="50" fill="none" stroke="#333"/>
-        <polygon points="500,300 600,450 400,450" fill="none" stroke="#333"/>
-      </svg>`;
-    svgContent.value = fallback;
-    mapLoaded.value = true;
-    nextTick(() => extractWallsFromSVG(fallback));
+// ======================= 修改部分 1: 定义精准的物理墙体 =======================
+// x, y, w, h 完全对应 SVG 的视觉元素
+// SVG 视口: 1000 x 600. 内部可行走区域: x[50-950], y[50-550]
+const obstacles = [
+  // --- 1. 四周边界墙 (这是最关键的，把四周封死) ---
+  { x: 0, y: 0, w: 1000, h: 50 },     // 上墙 (y < 50)
+  { x: 0, y: 550, w: 1000, h: 50 },   // 下墙 (y > 550)
+  { x: 0, y: 50, w: 50, h: 500 },     // 左墙 (x < 50)
+  { x: 950, y: 50, w: 50, h: 500 },   // 右墙 (x > 950)
+
+  // --- 2. 内部隔断墙 (SVG 中 stroke-width=4，这里设为 8 增加碰撞容错) ---
+  // 左上隔断 (SVG: M300,50 V220) -> 中心300，上下延伸
+  { x: 296, y: 50, w: 8, h: 170 },
+  // 左下隔断 (SVG: M300,380 V550)
+  { x: 296, y: 380, w: 8, h: 170 },
+  // 右上隔断 (SVG: M700,50 V220)
+  { x: 696, y: 50, w: 8, h: 170 },
+  // 右下隔断 (SVG: M700,380 V550)
+  { x: 696, y: 380, w: 8, h: 170 },
+
+  // --- 3. 展位实体 (A区 & B区) ---
+  // A区 (左侧)
+  { x: 100, y: 100, w: 140, h: 80 },
+  { x: 100, y: 250, w: 140, h: 80 },
+  { x: 100, y: 400, w: 140, h: 80 },
+  // B区 (右侧)
+  { x: 760, y: 100, w: 140, h: 80 },
+  { x: 760, y: 250, w: 140, h: 80 },
+  { x: 760, y: 400, w: 140, h: 80 },
+];
+
+// ======================= 修改部分 2: 碰撞检测算法 =======================
+// 增加 buffer 缓冲距离，防止仅仅贴着墙穿过去
+const checkCollision = (x: number, y: number, radius: number = 4) => {
+  for (const obs of obstacles) {
+    // AABB 碰撞检测 (Axis-Aligned Bounding Box)
+    // 检查点 (x,y) 的半径范围内是否与矩形 obs 重叠
+    if (
+      x + radius > obs.x &&           // 粒子右边缘 > 墙左边缘
+      x - radius < obs.x + obs.w &&   // 粒子左边缘 < 墙右边缘
+      y + radius > obs.y &&           // 粒子下边缘 > 墙上边缘
+      y - radius < obs.y + obs.h      // 粒子上边缘 < 墙下边缘
+    ) {
+      return true;
+    }
   }
+  return false;
 };
 
-const extractWallsFromSVG = (svgText: string) => {
-  if (!containerRef.value) return;
+// ======================= 修改部分 3: 出生点生成 (防止出生在墙里) =======================
+const createPerson = (role: 'visitor'|'staff'|'exhibitor'): Person => {
+  let safeX, safeY;
+  let attempts = 0;
+  // 尝试 100 次找到一个空闲位置
+  do {
+    // 限制随机生成范围在内部区域 (60~940, 60~540)
+    safeX = 60 + Math.random() * 880;
+    safeY = 60 + Math.random() * 480;
+    attempts++;
+  } while (checkCollision(safeX, safeY, 8) && attempts < 100);
 
-  const containerW = containerRef.value.clientWidth;
-  const containerH = containerRef.value.clientHeight;
-
-  // 解析 viewBox
-  const viewBoxMatch = svgText.match(/viewBox=["']?\s*([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s*["']?/i);
-  let vw = 1000, vh = 600;
-  if (viewBoxMatch) {
-    vw = parseFloat(viewBoxMatch[3]);
-    vh = parseFloat(viewBoxMatch[4]);
+  // 如果实在找不到（极端情况），强制放在中庭 (500, 300)
+  if (attempts >= 100) {
+    safeX = 500;
+    safeY = 300;
   }
 
-  // 计算缩放和偏移（保持原逻辑）
-  const containerRatio = containerW / containerH;
-  const svgRatio = vw / vh;
-  let scale: number, offsetX: number, offsetY: number;
-  if (containerRatio > svgRatio) {
-    scale = containerH / vh;
-    offsetX = (containerW - vw * scale) / 2;
-    offsetY = 0;
-  } else {
-    scale = containerW / vw;
-    offsetX = 0;
-    offsetY = (containerH - vh * scale) / 2;
-  }
-  mapTransform.scale = scale;
-  mapTransform.offsetX = offsetX;
-  mapTransform.offsetY = offsetY;
-  mapTransform.width = vw * scale;
-  mapTransform.height = vh * scale;
-
-  const extractedWalls: Line[] = [];
-  const addLine = (x1: number, y1: number, x2: number, y2: number) => {
-    extractedWalls.push({
-      x1: x1 * scale + offsetX,
-      y1: y1 * scale + offsetY,
-      x2: x2 * scale + offsetX,
-      y2: y2 * scale + offsetY
-    });
+  return {
+    id: Math.floor(Math.random() * 100000),
+    x: safeX,
+    y: safeY,
+    // 稍微降低一点速度，避免速度过快导致的"穿墙"（隧道效应）
+    vx: (Math.random() - 0.5) * 1.2,
+    vy: (Math.random() - 0.5) * 1.2,
+    role: role,
+    path: [] 
   };
-
-  // 强制添加四周边界墙（防飞出）
-  addLine(0, 0, vw, 0);
-  addLine(vw, 0, vw, vh);
-  addLine(vw, vh, 0, vh);
-  addLine(0, vh, 0, 0);
-
-  // 提取 <line>
-  const lineRegex = /<line[^>]*x1=["']?([\d\.]+)[^>]*y1=["']?([\d\.]+)[^>]*x2=["']?([\d\.]+)[^>]*y2=["']?([\d\.]+)[^>]*\/?>/gi;
-  let match;
-  while ((match = lineRegex.exec(svgText)) !== null) {
-    const x1 = parseFloat(match[1]);
-    const y1 = parseFloat(match[2]);
-    const x2 = parseFloat(match[3]);
-    const y2 = parseFloat(match[4]);
-    addLine(x1, y1, x2, y2);
-  }
-
-  // 提取 <rect>
-  const rectRegex = /<rect[^>]*x=["']?([\d\.]+)[^>]*y=["']?([\d\.]+)[^>]*width=["']?([\d\.]+)[^>]*height=["']?([\d\.]+)[^>]*\/?>/gi;
-  while ((match = rectRegex.exec(svgText)) !== null) {
-    const x = parseFloat(match[1]);
-    const y = parseFloat(match[2]);
-    const w = parseFloat(match[3]);
-    const h = parseFloat(match[4]);
-    if (w > 0 && h > 0) {
-      addLine(x, y, x + w, y);
-      addLine(x + w, y, x + w, y + h);
-      addLine(x + w, y + h, x, y + h);
-      addLine(x, y + h, x, y);
-    }
-  }
-
-  // 提取 <polygon> 和 <polyline>
-  const polyRegex = /<(polygon|polyline)[^>]*points=["']?\s*([^"'>]+)\s*["']?/gi;
-  while ((match = polyRegex.exec(svgText)) !== null) {
-    const pointsStr = match[2].trim();
-    const nums = pointsStr.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
-    const worldPts: {x: number, y: number}[] = [];
-    for (let i = 0; i < nums.length; i += 2) {
-      worldPts.push({x: nums[i], y: nums[i+1]});
-    }
-    for (let i = 0; i < worldPts.length - 1; i++) {
-      addLine(worldPts[i].x, worldPts[i].y, worldPts[i+1].x, worldPts[i+1].y);
-    }
-    // polygon 闭合
-    if (match[1] === 'polygon' && worldPts.length >= 3) {
-      addLine(worldPts[worldPts.length-1].x, worldPts[worldPts.length-1].y, worldPts[0].x, worldPts[0].y);
-    }
-  }
-
-  walls.value = extractedWalls;
-
-  // Canvas 初始化
-  if (canvasRef.value) {
-    canvasRef.value.width = containerW;
-    canvasRef.value.height = containerH;
-  }
-
-  // 小人初始位置（地图中心）
-  currentPos.x = offsetX + mapTransform.width / 2;
-  currentPos.y = offsetY + mapTransform.height / 2;
-
-  velocity.angle = Math.random() * Math.PI * 2;
-  velocity.x = Math.cos(velocity.angle) * CONFIG.SPEED;
-  velocity.y = Math.sin(velocity.angle) * CONFIG.SPEED;
-
-  isReady.value = true;
-};
-// ======================= 4. 物理引擎：碰撞与运动 =======================
-
-// 射线检测：优化精度，增加浮点误差容错，解决穿墙问题
-const getIntersection = (
-  p0_x: number, p0_y: number, p1_x: number, p1_y: number,
-  p2_x: number, p2_y: number, p3_x: number, p3_y: number
-) => {
-  const EPS = 1e-6; // 浮点误差容错值
-  const s1_x = p1_x - p0_x;
-  const s1_y = p1_y - p0_y;
-  const s2_x = p3_x - p2_x;
-  const s2_y = p3_y - p2_y;
-
-  const denominator = (-s2_x * s1_y + s1_x * s2_y);
-  if (Math.abs(denominator) < EPS) return null; // 避免除以0（平行线段）
-
-  const s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / denominator;
-  const t = (s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / denominator;
-
-  // 放宽检测范围，增加容错性（解决边缘穿墙）
-  if (s >= -EPS && s <= 1 + EPS && t >= -EPS && t <= 1 + EPS) {
-    return {
-      x: p0_x + (t * s1_x),
-      y: p0_y + (t * s1_y),
-      nx: -s2_y,
-      ny: s2_x
-    };
-  }
-  return null;
 };
 
-// 物理步进计算 (核心逻辑复用)
-// 物理步进计算：强化反弹与推离逻辑，防止嵌入墙体
-const calculatePhysicsStep = (currX: number, currY: number, currVX: number, currVY: number) => {
-  let nextX = currX + currVX;
-  let nextY = currY + currVY;
-  let newVX = currVX;
-  let newVY = currVY;
-  let hitWall = false;
+// ======================= 修改部分 4: 物理引擎更新 (更严格的反弹) =======================
+const updatePhysics = () => {
+  if (!mapLoaded.value) return;
 
-  let nearestCollision: { x: number, y: number, nx: number, ny: number, dist: number } | null = null;
-  let minDistance = Infinity;
+  crowd.value.forEach(p => {
+    // 1. 随机扰动 (模拟行走意图)
+    if (Math.random() < 0.05) {
+      p.vx += (Math.random() - 0.5) * 0.5;
+      p.vy += (Math.random() - 0.5) * 0.5;
+    }
+    
+    // 2. 摩擦力/阻力 (限制最大速度，防止穿墙)
+    const speed = Math.hypot(p.vx, p.vy);
+    const maxSpeed = 3.0; // 限制最大速度
+    if (speed > maxSpeed) {
+      p.vx = (p.vx / speed) * maxSpeed;
+      p.vy = (p.vy / speed) * maxSpeed;
+    } else if (speed > 0.1) {
+       // 正常的空气阻力
+       p.vx *= 1.0;
+       p.vy *= 1.0;
+    }
 
-  // 1. 墙体碰撞检测
-  for (const wall of walls.value) {
-    const hit = getIntersection(
-      currX, currY, nextX, nextY,
-      wall.x1, wall.y1, wall.x2, wall.y2
-    );
-    if (hit) {
-      const dist = Math.hypot(hit.x - currX, hit.y - currY);
-      if (dist < minDistance) {
-        minDistance = dist;
-        const len = Math.hypot(hit.nx, hit.ny);
-        if (len < 1e-6) continue; // 避免无效法向量
-        nearestCollision = { ...hit, nx: hit.nx / len, ny: hit.ny / len, dist };
+    // 3. 分轴碰撞检测 (分离 X 和 Y 轴，确保贴墙滑行效果)
+    const radius = 4; // 粒子半径
+
+    // --- X 轴移动尝试 ---
+    let nextX = p.x + p.vx;
+    if (checkCollision(nextX, p.y, radius)) {
+      p.vx *= -0.6; // 碰到墙反弹，并损失能量
+      // 简单的重叠修正：如果反弹后还在墙里，这一帧不移动 X
+    } else {
+      p.x = nextX;
+    }
+
+    // --- Y 轴移动尝试 ---
+    let nextY = p.y + p.vy;
+    if (checkCollision(p.x, nextY, radius)) {
+      p.vy *= -0.6; // 碰到墙反弹
+    } else {
+      p.y = nextY;
+    }
+
+    // 4. 电子围栏逻辑 (保持不变)
+    if (layers.fence && p.role !== 'staff') {
+      if (p.x > fence.x && p.x < fence.x + fence.w && 
+          p.y > fence.y && p.y < fence.y + fence.h) {
+        if (Math.random() < 0.005) {
+           addAlert(`越界告警: ${p.role === 'visitor' ? '观众' : '展商'}闯入`, '机房禁区 #01');
+           // 强力推离
+           p.vx = -Math.abs(p.vx) * 6; 
+           p.vy = (Math.random() - 0.5) * 6;
+        }
       }
     }
+
+    // 5. 记录轨迹
+    if (p.role === 'staff') {
+      p.path.push({x: p.x, y: p.y});
+      if (p.path.length > 300) p.path.shift();
+    }
+  });
+
+  // 模拟数据变动
+  if (Math.random() < 0.1) {
+    dashboardData.totalVisitors += Math.floor(Math.random() * 5) - 2;
   }
-
-  // 2. 处理反弹：增加强制推离，避免嵌入墙体
-  if (nearestCollision) {
-    hitWall = true;
-    const dot = currVX * nearestCollision.nx + currVY * nearestCollision.ny;
-    newVX = currVX - 2 * dot * nearestCollision.nx;
-    newVY = currVY - 2 * dot * nearestCollision.ny;
-
-    // 强化推离：从墙体边缘推离5px，彻底避免嵌入
-    const pushDistance = 5;
-    nextX = nearestCollision.x + nearestCollision.nx * pushDistance;
-    nextY = nearestCollision.y + nearestCollision.ny * pushDistance;
-
-    // 速度衰减：避免反弹后速度过大再次穿墙
-    newVX *= 0.9;
-    newVY *= 0.9;
-  }
-
-  // 3. 最后一道防线：强制 Clamp 钳制，防止飞出可视区域
-  const padding = 5;
-  const minX = mapTransform.offsetX + padding;
-  const maxX = mapTransform.offsetX + mapTransform.width - padding;
-  const minY = mapTransform.offsetY + padding;
-  const maxY = mapTransform.offsetY + mapTransform.height - padding;
-
-  if (nextX < minX) { nextX = minX; newVX = Math.abs(newVX); hitWall = true; }
-  if (nextX > maxX) { nextX = maxX; newVX = -Math.abs(newVX); hitWall = true; }
-  if (nextY < minY) { nextY = minY; newVY = Math.abs(newVY); hitWall = true; }
-  if (nextY > maxY) { nextY = maxY; newVY = -Math.abs(newVY); hitWall = true; }
-
-  return { nextX, nextY, newVX, newVY, hitWall };
 };
-const updatePhysics = () => {
-  if (!isReady.value) return; 
 
-  // 随机扰动角度
-  velocity.angle += (Math.random() - 0.5) * CONFIG.WANDER_FORCE;
-  velocity.x = Math.cos(velocity.angle) * CONFIG.SPEED;
-  velocity.y = Math.sin(velocity.angle) * CONFIG.SPEED;
 
-  const result = calculatePhysicsStep(currentPos.x, currentPos.y, velocity.x, velocity.y);
+// SVG 初始化
+const loadMap = async () => {
+  const svg = `
+    <svg viewBox="0 0 1000 600" width="100%" height="100%" preserveAspectRatio="none">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+      
+      <!-- 墙体结构 -->
+      <path d="M50,50 H950 V550 H50 Z" fill="none" stroke="#64748b" stroke-width="4" />
+      <path d="M300,50 V220" stroke="#64748b" stroke-width="4" />
+      <path d="M300,380 V550" stroke="#64748b" stroke-width="4" />
+      <path d="M700,50 V220" stroke="#64748b" stroke-width="4" />
+      <path d="M700,380 V550" stroke="#64748b" stroke-width="4" />
 
-  if (result.hitWall) {
-    collisionDetected.value = true;
-    // 碰撞后更新全局角度，防止下一帧卡死
-    velocity.angle = Math.atan2(result.newVY, result.newVX);
-    setTimeout(() => { collisionDetected.value = false; }, 200);
+      <!-- 展位 A区 -->
+      <g fill="#1e293b" stroke="#334155" stroke-width="2">
+        <rect x="100" y="100" width="140" height="80" rx="4" />
+        <rect x="100" y="250" width="140" height="80" rx="4" />
+        <rect x="100" y="400" width="140" height="80" rx="4" />
+      </g>
+      <!-- 展位 B区 -->
+      <g fill="#1e293b" stroke="#334155" stroke-width="2">
+        <rect x="760" y="100" width="140" height="80" rx="4" />
+        <rect x="760" y="250" width="140" height="80" rx="4" />
+        <rect x="760" y="400" width="140" height="80" rx="4" />
+      </g>
+      
+      <!-- 中庭 -->
+      <circle cx="500" cy="300" r="100" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="8,4" />
+      <text x="500" y="305" fill="#64748b" font-family="monospace" font-size="20" text-anchor="middle" font-weight="bold" opacity="0.5">CENTRAL HALL</text>
+      
+      <text x="170" y="145" fill="#475569" font-size="14" text-anchor="middle">A-01</text>
+      <text x="170" y="295" fill="#475569" font-size="14" text-anchor="middle">A-02</text>
+      <text x="830" y="145" fill="#475569" font-size="14" text-anchor="middle">B-01</text>
+    </svg>
+  `;
+  svgContent.value = svg;
+  mapLoaded.value = true;
+  initCrowd();
+};
+
+const initCrowd = () => {
+  const newCrowd: Person[] = [];
+  for(let i=0; i<60; i++) newCrowd.push(createPerson('visitor'));
+  for(let i=0; i<15; i++) newCrowd.push(createPerson('exhibitor'));
+  for(let i=0; i<4; i++) newCrowd.push(createPerson('staff'));
+  crowd.value = newCrowd;
+};
+
+// Fix 4: 生成位置防卡死
+
+const renderCanvas = () => {
+  if (!mapLoaded.value || !adminContainerRef.value) return;
+
+  const containerW = adminContainerRef.value.clientWidth;
+  const containerH = adminContainerRef.value.clientHeight;
+  
+  // Fix 3: 计算并同步缩放比例
+  const currentScaleX = containerW / 1000;
+  const currentScaleY = containerH / 600;
+  mapScale.x = currentScaleX;
+  mapScale.y = currentScaleY;
+
+  // 热力图
+  if (layers.heatmap && heatmapCanvasRef.value) {
+    const ctx = heatmapCanvasRef.value.getContext('2d');
+    if (ctx) {
+      heatmapCanvasRef.value.width = containerW;
+      heatmapCanvasRef.value.height = containerH;
+      ctx.clearRect(0, 0, containerW, containerH);
+      
+      crowd.value.forEach(p => {
+        const screenX = p.x * currentScaleX;
+        const screenY = p.y * currentScaleY;
+        ctx.beginPath();
+        const grad = ctx.createRadialGradient(screenX, screenY, 5, screenX, screenY, 25);
+        grad.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+        grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(screenX - 25, screenY - 25, 50, 50);
+      });
+    }
   }
 
-  currentPos.x = result.nextX;
-  currentPos.y = result.nextY;
-  // 更新速度向量不是必须的，因为下一帧会根据 angle 重算，但为了逻辑严谨性保留
-  velocity.x = result.newVX;
-  velocity.y = result.newVY;
+  // 轨迹图 (Fix 2: 只绘制 staff)
+  if (layers.patrol && patrolCanvasRef.value) {
+    const ctx = patrolCanvasRef.value.getContext('2d');
+    if (ctx) {
+      patrolCanvasRef.value.width = containerW;
+      patrolCanvasRef.value.height = containerH;
+      ctx.clearRect(0, 0, containerW, containerH);
 
-  // 轨迹记录
-  if (showTrajectory.value && isRunning.value) {
-    const last = pathHistory.value[pathHistory.value.length - 1];
-    if (!last || Math.hypot(last.x - currentPos.x, last.y - currentPos.y) > 5) {
-      pathHistory.value.push({x: currentPos.x, y: currentPos.y});
-      if (pathHistory.value.length > CONFIG.MAX_TRAIL) pathHistory.value.shift();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#4ade80'; 
+      ctx.shadowColor = 'rgba(74, 222, 128, 0.5)';
+      ctx.shadowBlur = 4;
+
+      const guards = crowd.value.filter(p => p.role === 'staff');
+      guards.forEach(g => {
+        if (g.path.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(g.path[0].x * currentScaleX, g.path[0].y * currentScaleY);
+        for (let i = 1; i < g.path.length; i++) {
+          ctx.lineTo(g.path[i].x * currentScaleX, g.path[i].y * currentScaleY);
+        }
+        ctx.stroke();
+      });
     }
   }
 };
 
-// ======================= 5. 历史回放 & 动画循环 =======================
+// ======================= 4. 用户端导航逻辑 =======================
+let navPathIndex = 0;
+const navWaypoints = [
+  {x: 100, y: 300}, {x: 200, y: 300}, {x: 280, y: 300}, 
+  {x: 350, y: 280}, {x: 350, y: 200}, {x: 350, y: 150},
+  {x: 450, y: 150}, {x: 550, y: 150}, {x: 600, y: 150},
+  {x: 700, y: 180}, {x: 750, y: 220}
+];
 
-const openHistoryDialog = () => {
-  if (isRunning.value) {
-    ElMessage.warning('请先暂停定位模拟');
+const updateNavigation = () => {
+  if (!isNavigating.value || !userContainerRef.value) return;
+  const target = navWaypoints[navPathIndex];
+  if (!target) {
+    isNavigating.value = false;
+    ElMessage.success('已到达目的地: A区会议室');
     return;
   }
-  historyDialogVisible.value = true;
-};
+  const dx = target.x - userPos.x;
+  const dy = target.y - userPos.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 5) { navPathIndex++; return; }
 
-const confirmHistoryView = () => {
-  historyDialogVisible.value = false;
-  isHistoryMode.value = true;
-  pathHistory.value = [];
-  
-  if (canvasRef.value) {
-    const ctx = canvasRef.value.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-  }
+  const speed = 2.5;
+  userPos.x += (dx / dist) * speed;
+  userPos.y += (dy / dist) * speed;
+  userAngle.value = Math.atan2(dy, dx) * (180 / Math.PI);
 
-  // 生成历史轨迹：使用与实时运动相同的物理引擎
-  // 1. 初始点：地图中心
-  let simX = mapTransform.offsetX + (mapTransform.width / 2);
-  let simY = mapTransform.offsetY + (mapTransform.height / 2);
-  
-  // 随机初始方向
-  let simAngle = Math.random() * Math.PI * 2;
-  let simVX = Math.cos(simAngle) * CONFIG.SPEED;
-  let simVY = Math.sin(simAngle) * CONFIG.SPEED;
-
-  const pointsToGen = 1200; // 生成点数
-
-  for(let i = 0; i < pointsToGen; i++) {
-    // 模拟随机转向
-    simAngle += (Math.random() - 0.5) * CONFIG.WANDER_FORCE;
-    simVX = Math.cos(simAngle) * CONFIG.SPEED;
-    simVY = Math.sin(simAngle) * CONFIG.SPEED;
-
-    const step = calculatePhysicsStep(simX, simY, simVX, simVY);
-
-    if (step.hitWall) {
-      simAngle = Math.atan2(step.newVY, step.newVX);
+  if (userCanvasRef.value) {
+    const ctx = userCanvasRef.value.getContext('2d');
+    if (ctx) {
+      userCanvasRef.value.width = userContainerRef.value.clientWidth;
+      userCanvasRef.value.height = userContainerRef.value.clientHeight;
+      const scaleX = userCanvasRef.value.width / 1000;
+      const scaleY = userCanvasRef.value.height / 600;
+      ctx.clearRect(0, 0, userCanvasRef.value.width, userCanvasRef.value.height);
+      ctx.beginPath();
+      ctx.moveTo(userPos.x * scaleX, userPos.y * scaleY);
+      for(let i = navPathIndex; i < navWaypoints.length; i++) {
+        ctx.lineTo(navWaypoints[i].x * scaleX, navWaypoints[i].y * scaleY);
+      }
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 8]);
+      ctx.stroke();
     }
-    
-    simX = step.nextX;
-    simY = step.nextY;
-    pathHistory.value.push({x: simX, y: simY});
-  }
-
-  // 将小人放置在历史终点
-  if (pathHistory.value.length > 0) {
-    const last = pathHistory.value[pathHistory.value.length - 1];
-    currentPos.x = last.x;
-    currentPos.y = last.y;
-  }
-
-  drawTrajectory();
-  ElMessage.success(`已加载历史轨迹`);
-};
-
-const drawTrajectory = () => {
-  if (!canvasRef.value || !showTrajectory.value || pathHistory.value.length < 2) return;
-  const ctx = canvasRef.value.getContext('2d');
-  if (!ctx) return;
-
-  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#22d3ee'; // Cyan-400
-
-  ctx.beginPath();
-  ctx.moveTo(pathHistory.value[0].x, pathHistory.value[0].y);
-  for (let i = 1; i < pathHistory.value.length; i++) {
-    ctx.lineTo(pathHistory.value[i].x, pathHistory.value[i].y);
-  }
-  ctx.stroke();
-};
-
-const animate = (time: number) => {
-  if (!isRunning.value) return;
-  if (lastTime) {
-    const delta = time - lastTime;
-    fps.value = Math.round(1000 / delta);
-  }
-  lastTime = time;
-
-  updatePhysics();
-  drawTrajectory();
-  
-  animationFrameId = requestAnimationFrame(animate);
-};
-
-const startSimulation = () => {
-  if (isRunning.value || !isReady.value || isHistoryMode.value) return;
-  isRunning.value = true;
-  lastTime = performance.now();
-  animationFrameId = requestAnimationFrame(animate);
-  ElMessage.success('模拟已启动');
-};
-
-const stopSimulation = () => {
-  if (!isRunning.value) return;
-  isRunning.value = false;
-  cancelAnimationFrame(animationFrameId);
-};
-
-const resetSimulation = () => {
-  stopSimulation();
-  pathHistory.value = [];
-  const ctx = canvasRef.value?.getContext('2d');
-  if (ctx && canvasRef.value) ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-
-  if (isHistoryMode.value) {
-    isHistoryMode.value = false;
-    ElMessage.info('退出历史模式');
-  }
-  
-  // 重置回中心
-  if (mapTransform.scale > 0) {
-    currentPos.x = mapTransform.offsetX + mapTransform.width / 2;
-    currentPos.y = mapTransform.offsetY + mapTransform.height / 2;
   }
 };
 
-const toggleTrajectory = () => {
-  showTrajectory.value = !showTrajectory.value;
-  if (!showTrajectory.value && canvasRef.value) {
-    const ctx = canvasRef.value.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-  } else {
-    drawTrajectory();
-  }
+// ======================= 5. 交互与控制 =======================
+
+const startNavigationDemo = () => {
+  userPos.x = 100;
+  userPos.y = 300;
+  navPathIndex = 0;
+  isNavigating.value = true;
 };
-
-// ======================= 6. 管理端逻辑 =======================
-const activeAdminTab = ref('users');
-const mockUsers = ref([
-  { id: 1001, name: '张三', status: 'online', lastActive: '2026-01-05 14:30:00', device: 'UWB-TAG-01', role: 'user' },
-  { id: 1002, name: '李四', status: 'offline', lastActive: '2026-01-04 18:00:00', device: 'UWB-TAG-02', role: 'user' },
-  { id: 1003, name: '系统管理员', status: 'online', lastActive: '2026-01-05 15:00:00', device: 'PC-CONSOLE', role: 'admin' },
-]);
-const mapFiles = ref([
-  { name: 'map.dxf', size: '3.2 MB', date: '2026-01-06' }, 
-  { name: 'office_layout.svg', size: '1.8 MB', date: '2026-01-05' },
-]);
-const userForm = reactive({ id: 0, name: '', device: '', role: 'user', status: 'offline' });
-const dialogVisible = ref(false);
-const historyVisible = ref(false);
-const dialogTitle = ref('新增用户');
-const currentUser = ref<any>(null);
-const searchQuery = ref('');
-const filterStatus = ref('');
-
-const historyRangeLabel = computed(() => ({ '1h': '1小时', '24h': '1天', '10d': '10天' }[selectedHistoryRange.value]));
-const getHistoryStats = computed(() => ({ 
-  '1h': { points: 120, distance: 450 }, 
-  '24h': { points: 2800, distance: 8500 }, 
-  '10d': { points: 15000, distance: 92000 } 
-}[selectedHistoryRange.value as string] || {points:0, distance:0}));
-
-const filteredUsers = computed(() => {
-  return mockUsers.value.filter(user => {
-    const matchName = user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
-                      user.device.toLowerCase().includes(searchQuery.value.toLowerCase());
-    const matchStatus = filterStatus.value ? user.status === filterStatus.value : true;
-    return matchName && matchStatus;
-  });
-});
 
 const switchMode = () => {
   isAdmin.value = !isAdmin.value;
-  if (isAdmin.value) stopSimulation();
-  else {
-    mapLoaded.value = false;
-    setTimeout(() => loadMapFromFile(), 100);
+  if (isAdmin.value) {
+    isNavigating.value = false;
+    nextTick(() => { if(!crowd.value.length) initCrowd(); });
+  } else {
+    startNavigationDemo();
   }
-  ElMessage.success(`已切换到${isAdmin.value ? '管理员' : '个人'}模式`);
 };
 
-const handleAddUser = () => { dialogTitle.value = '新增用户'; Object.assign(userForm, { id: 0, name: '', device: '', role: 'user' }); dialogVisible.value = true; };
-const handleEditUser = (row: any) => { dialogTitle.value = '编辑用户'; Object.assign(userForm, row); currentUser.value = row; dialogVisible.value = true; };
-const handleDeleteUser = (row: any) => {
-  ElMessageBox.confirm(`删除用户 ${row.name}?`, '警告', { type: 'warning' }).then(() => {
-    mockUsers.value = mockUsers.value.filter(u => u.id !== row.id);
-    ElMessage.success('已删除');
+const triggerEmergency = () => {
+  addAlert('检测到人群异常聚集', 'C区中心通道');
+  ElNotification({
+    title: '应急响应已触发',
+    message: '已自动下发疏散指令至最近显示屏，并调度安保人员前往。',
+    type: 'error',
+    duration: 5000,
+    position: 'bottom-right'
+  });
+  crowd.value.filter(p => p.role === 'staff').forEach(p => {
+    // 简单的“寻路”向量，由于增加了物理墙壁，这里可能被墙挡住
+    // 在真实系统中需要 A* 寻路，这里简单演示向中心靠拢
+    p.vx = (500 - p.x) * 0.02;
+    p.vy = (300 - p.y) * 0.02;
   });
 };
-const saveUser = () => {
-  if (userForm.id === 0) mockUsers.value.push({ ...userForm, id: Date.now(), status: 'offline', lastActive: '未激活' });
-  else { const i = mockUsers.value.findIndex(u => u.id === userForm.id); if(i>-1) mockUsers.value[i] = { ...mockUsers.value[i], ...userForm }; }
-  dialogVisible.value = false;
-};
-const viewHistory = (row: any) => { currentUser.value = row; historyVisible.value = true; };
-const handleFileChange = (file: any) => ElMessage.info(`文件 ${file.name} 选中`);
 
-// ======================= 7. 生命周期 =======================
-onMounted(() => {
-  loadMapFromFile();
-  if (containerRef.value) {
-    resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.contentRect.width > 0 && !isAdmin.value) {
-          stopSimulation();
-          nextTick(() => {
-            // 窗口变化时重新提取墙体
-            extractWallsFromSVG(svgContent.value);
-          });
-        }
-      }
-    });
-    resizeObserver.observe(containerRef.value);
+const resetAdminView = () => {
+  layers.heatmap = false;
+  layers.patrol = false;
+  alerts.value = [];
+  initCrowd();
+  ElMessage.info('视图已重置');
+};
+
+const addAlert = (title: string, loc: string) => {
+  alerts.value.unshift({
+    id: Date.now(),
+    title, loc, 
+    time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
+  });
+  if (alerts.value.length > 50) alerts.value.pop();
+};
+
+const updateTime = () => {
+  const now = new Date();
+  currentTime.value = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+};
+
+const animate = (time: number) => {
+  if (lastTime) fps.value = Math.round(1000 / (time - lastTime));
+  lastTime = time;
+
+  if (isAdmin.value) {
+    updatePhysics();
+    renderCanvas();
+  } else {
+    updateNavigation();
   }
+  animId = requestAnimationFrame(animate);
+};
+
+onMounted(() => {
+  loadMap();
+  animId = requestAnimationFrame(animate);
+  setInterval(updateTime, 1000);
 });
 
 onUnmounted(() => {
-  stopSimulation();
-  if (resizeObserver) resizeObserver.disconnect();
+  cancelAnimationFrame(animId);
 });
 </script>
 
 <style scoped>
-.bg-grid {
-  background-image: linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
-  background-size: 20px 20px;
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-.map-fade-in { animation: fadeIn 0.8s ease-out forwards; opacity: 0; }
-@keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
-
-/* SVG深色适配 */
-:deep(.inner-svg-wrapper svg) {
-  width: 100%; height: 100%; display: block;
-  filter: invert(0.9) hue-rotate(180deg) saturate(1.5) brightness(0.8) contrast(1.2);
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4); 
 }
-:deep(.admin-map-container) { opacity: 0.6; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569; 
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b; 
+}
 
-/* 动画 */
-:deep(.animate-ping) { animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
-@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
-.will-change-transform { will-change: transform; transition: transform 0.05s linear; }
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
-/* Element UI 覆盖 */
-:deep(.el-table), :deep(.el-table__expanded-cell) { background: transparent !important; }
-:deep(.el-table th), :deep(.el-table tr) { background: transparent !important; }
-:deep(.el-table td), :deep(.el-table th.is-leaf) { border-bottom: 1px solid #334155 !important; color: #cbd5e1; }
-:deep(.el-table--enable-row-hover .el-table__body tr:hover > td) { background-color: rgba(56, 189, 248, 0.1) !important; }
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
 
-:deep(.glass-dialog) { background: rgba(15, 23, 42, 0.95) !important; backdrop-filter: blur(12px); border: 1px solid rgba(148, 163, 184, 0.2); }
-:deep(.glass-dialog .el-dialog__title) { color: #f1f5f9; }
-:deep(.glass-dialog .el-dialog__body) { color: #cbd5e1; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.4s ease;
+}
+.list-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+div {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
 </style>

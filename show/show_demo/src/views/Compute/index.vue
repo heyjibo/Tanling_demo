@@ -205,7 +205,7 @@
         <!-- 底部信息 -->
         <div class="mt-12 text-center">
           <p class="text-slate-500 text-sm">
-            工业智能平台 v2.1.0 • © 2024 安庆石化 • 数据更新时间: {{ currentDate }}
+            工业智能平台 v2.1.0 • 数据更新时间: {{ currentDate }}
           </p>
         </div>
       </div>
