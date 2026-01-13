@@ -68,25 +68,34 @@
                 </div>
              </div>
           </div>
-          <div class="flex-1 relative bg-[#0a0e17] overflow-hidden cursor-move">
+          
+          <!-- ✅ 修改：地图容器（移除 cursor-move） -->
+          <div class="flex-1 relative bg-[#0a0e17] overflow-hidden">
              <!-- 导航指示 -->
              <div v-if="isNavigating || isEmergency" class="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-2 rounded-full z-30 shadow-lg backdrop-blur flex items-center gap-2 animate-bounce-slow whitespace-nowrap" :class="isEmergency ? '!bg-red-600' : ''">
                 <el-icon><Guide /></el-icon> {{ isEmergency ? '前往最近出口' : `前往：${navigatingTo}` }} <span class="font-mono text-sm">{{ navigationDistance }}m</span>
              </div>
              
-             <div class="absolute inset-0 transition-transform duration-300 ease-out will-change-transform" :style="userCameraStyle">
-                <div v-html="svgContent" class="absolute inset-0 w-[1000px] h-[600px] opacity-50"></div>
+             <!-- ✅ 修改：地图层（应用相机跟随样式） -->
+             <div class="absolute inset-0 will-change-transform" :style="userCameraStyle">
+                <!-- SVG 地图 -->
+                <div v-html="svgContent" class="absolute top-0 left-0 w-[1000px] h-[600px] opacity-50"></div>
+                
                 <!-- 导航线 -->
-                <svg v-if="(isNavigating || isEmergency) && myPerson" class="absolute inset-0 w-[1000px] h-[600px] pointer-events-none z-10">
+                <svg v-if="(isNavigating || isEmergency) && myPerson" class="absolute top-0 left-0 w-[1000px] h-[600px] pointer-events-none z-10">
                    <path :d="`M${myPerson.x},${myPerson.y} L${navTarget.x},${navTarget.y}`" :stroke="isEmergency ? '#ef4444' : '#3b82f6'" stroke-width="4" stroke-dasharray="8,6" class="animate-pulse" />
                    <circle :cx="navTarget.x" :cy="navTarget.y" r="10" :fill="isEmergency ? '#ef4444' : '#3b82f6'" class="animate-ping" />
                 </svg>
-                <!-- 自己 -->
+                
+                <!-- 自己的位置标记 -->
                 <div v-if="myPerson" class="absolute w-0 h-0 z-50 transition-transform duration-100 linear" :style="{ transform: `translate(${myPerson.x}px, ${myPerson.y}px)` }">
-                     <div class="absolute -top-3 -left-3 w-6 h-6 bg-cyan-500 border-2 border-white rounded-full shadow-[0_0_15px_cyan] flex items-center justify-center z-50 pulse-ring"><el-icon :size="12" color="#fff"><User /></el-icon></div>
+                     <div class="absolute -top-3 -left-3 w-6 h-6 bg-cyan-500 border-2 border-white rounded-full shadow-[0_0_15px_cyan] flex items-center justify-center z-50 pulse-ring">
+                       <el-icon :size="12" color="#fff"><User /></el-icon>
+                     </div>
                 </div>
              </div>
           </div>
+          
           <div class="h-auto bg-slate-900 border-t border-slate-700/50 p-4 z-20 flex flex-col gap-3">
              <div class="flex justify-between items-center text-xs text-slate-400">
                 <span>推荐目的地</span>
@@ -218,52 +227,52 @@
                  </div>
              </div>
              
-             <!-- 监控主视图 -->
-             <div ref="adminMonitorRef" class="flex-1 relative cursor-crosshair overflow-hidden bg-[#0a0e17]">
-                <div v-if="mapLoaded" v-html="svgContent" class="absolute inset-0 w-full h-full opacity-40 pointer-events-none select-none transition-opacity duration-300" :class="isNightMode ? 'opacity-20' : 'opacity-40'"></div>
-                
-                <!-- 围栏与区域 -->
-                <svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
-                    <!-- 普通围栏 -->
-                    <rect :x="fence.x * safeMonitorScale.x" :y="fence.y * safeMonitorScale.y" :width="fence.w * safeMonitorScale.x" :height="fence.h * safeMonitorScale.y" fill="rgba(239, 68, 68, 0.05)" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,4" />
-                    <text :x="(fence.x+10)*safeMonitorScale.x" :y="(fence.y+20)*safeMonitorScale.y" fill="#ef4444" font-size="10" opacity="0.7">VIP 禁区</text>
-                    
-                    <!-- 机房高危禁区 -->
-                    <rect :x="serverRoom.x * safeMonitorScale.x" :y="serverRoom.y * safeMonitorScale.y" :width="serverRoom.w * safeMonitorScale.x" :height="serverRoom.h * safeMonitorScale.y" fill="rgba(255, 0, 0, 0.1)" stroke="red" stroke-width="2" />
-                    <text :x="(serverRoom.x+5)*safeMonitorScale.x" :y="(serverRoom.y+15)*safeMonitorScale.y" fill="red" font-weight="bold" font-size="10">核心机房 (报警)</text>
+             <!-- ✅ 修改：监控主视图（固定尺寸 + 居中 + 滚动条） -->
+             <div ref="adminMonitorRef" class="flex-1 relative overflow-auto custom-scrollbar bg-[#0a0e17] flex items-center justify-center">
+                <!-- ✅ 固定尺寸容器（1000x600） -->
+                <div class="relative" style="width: 1000px; height: 600px; flex-shrink: 0;">
+                  <!-- SVG 地图 -->
+                  <div v-if="mapLoaded" v-html="svgContent" class="absolute inset-0 w-full h-full opacity-40 pointer-events-none select-none transition-opacity duration-300" :class="isNightMode ? 'opacity-20' : 'opacity-40'"></div>
+                  
+                  <!-- 围栏与区域 -->
+                  <svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                      <!-- 机房高危禁区 -->
+                      <rect :x="serverRoom.x" :y="serverRoom.y" :width="serverRoom.w" :height="serverRoom.h" fill="rgba(255, 0, 0, 0.1)" stroke="red" stroke-width="2" />
+                      <text :x="serverRoom.x+5" :y="serverRoom.y+15" fill="red" font-weight="bold" font-size="10">核心机房 (报警)</text>
 
-                    <!-- 应急路线 (仅应急模式显示) -->
-                    <g v-if="isEmergency" class="animate-pulse">
-                        <path d="M500,300 L500,550" stroke="#ef4444" stroke-width="4" stroke-dasharray="10,5" marker-end="url(#arrow)" />
-                        <path d="M250,300 L50,300" stroke="#ef4444" stroke-width="4" stroke-dasharray="10,5" />
-                        <path d="M750,300 L950,300" stroke="#ef4444" stroke-width="4" stroke-dasharray="10,5" />
-                    </g>
-                </svg>
+                      <!-- 应急路线 (仅应急模式显示) -->
+                      <g v-if="isEmergency" class="animate-pulse">
+                          <path d="M500,300 L500,550" stroke="#ef4444" stroke-width="4" stroke-dasharray="10,5" marker-end="url(#arrow)" />
+                          <path d="M250,300 L50,300" stroke="#ef4444" stroke-width="4" stroke-dasharray="10,5" />
+                          <path d="M750,300 L950,300" stroke="#ef4444" stroke-width="4" stroke-dasharray="10,5" />
+                      </g>
+                  </svg>
 
-                <!-- 人员图层 -->
-                <div class="absolute inset-0 pointer-events-none z-20">
-                    <div v-for="p in crowd" :key="p.id" class="absolute transition-transform duration-100 ease-linear will-change-transform flex items-center justify-center"
-                        :style="{ transform: `translate(${p.x * safeMonitorScale.x}px, ${p.y * safeMonitorScale.y}px)` }">
-                        
-                        <!-- 观众/参展商 -->
-                        <div v-if="p.role === 'visitor' || p.role === 'exhibitor'" 
-                             class="rounded-full w-1.5 h-1.5"
-                             :class="p.role === 'visitor' ? 'bg-cyan-300 opacity-80' : 'bg-purple-400 opacity-90'">
-                        </div>
+                  <!-- 人员图层 -->
+                  <div class="absolute inset-0 pointer-events-none z-20">
+                      <div v-for="p in crowd" :key="p.id" class="absolute transition-transform duration-100 ease-linear will-change-transform flex items-center justify-center"
+                          :style="{ transform: `translate(${p.x}px, ${p.y}px)` }">
+                          
+                          <!-- 观众/参展商 -->
+                          <div v-if="p.role === 'visitor' || p.role === 'exhibitor'" 
+                               class="rounded-full w-1.5 h-1.5"
+                               :class="p.role === 'visitor' ? 'bg-cyan-300 opacity-80' : 'bg-purple-400 opacity-90'">
+                          </div>
 
-                        <!-- 工作人员 (带图标) -->
-                        <div v-else class="relative">
-                             <div class="w-4 h-4 rounded text-[8px] flex items-center justify-center font-bold text-black shadow-lg z-30 transition-colors"
-                                  :class="getStaffColorClass(p.role)">
-                                 {{ getStaffIcon(p.role) }}
-                             </div>
-                             <!-- 巡检/忙碌状态指示 -->
-                             <div v-if="p.isBusy || (p.role === 'security' && patrolMode)" 
-                                  class="absolute -inset-1 rounded border animate-ping opacity-50"
-                                  :class="p.role === 'security' ? 'border-green-500' : 'border-blue-400'">
-                             </div>
-                        </div>
-                    </div>
+                          <!-- 工作人员 (带图标) -->
+                          <div v-else class="relative">
+                               <div class="w-4 h-4 rounded text-[8px] flex items-center justify-center font-bold text-black shadow-lg z-30 transition-colors"
+                                    :class="getStaffColorClass(p.role)">
+                                   {{ getStaffIcon(p.role) }}
+                               </div>
+                               <!-- 巡检/忙碌状态指示 -->
+                               <div v-if="p.isBusy || (p.role === 'security' && patrolMode)" 
+                                    class="absolute -inset-1 rounded border animate-ping opacity-50"
+                                    :class="p.role === 'security' ? 'border-green-500' : 'border-blue-400'">
+                               </div>
+                          </div>
+                      </div>
+                  </div>
                 </div>
              </div>
           </div>
@@ -315,18 +324,21 @@
                 </div>
              </div>
 
-             <!-- 热力图 Canvas -->
-             <div ref="adminHeatmapContainerRef" class="flex-1 bg-[#0a0e17] rounded-xl border border-slate-700/50 relative overflow-hidden flex items-center justify-center">
-                <div v-if="mapLoaded" v-html="svgContent" class="absolute inset-0 w-full h-full opacity-30 pointer-events-none grayscale"></div>
-                <canvas ref="heatmapCanvasRef" class="absolute inset-0 w-full h-full opacity-90"></canvas>
-                
-                <!-- 准确的4色图例 -->
-                <div class="absolute bottom-4 left-4 bg-slate-900/90 p-3 rounded border border-slate-700 backdrop-blur flex flex-col gap-1 shadow-lg">
-                   <div class="text-[10px] text-slate-400 mb-1">实时热力密度</div>
-                   <div class="w-32 h-3 rounded-sm" style="background: linear-gradient(to right, #0000ff, #00ff00, #ffff00, #ff0000);"></div>
-                   <div class="flex justify-between text-[8px] text-slate-500 px-0.5">
-                       <span>Low</span><span>High</span>
-                   </div>
+             <!-- ✅ 修改：热力图容器（固定尺寸 + 居中 + 滚动条） -->
+             <div ref="adminHeatmapContainerRef" class="flex-1 bg-[#0a0e17] rounded-xl border border-slate-700/50 relative overflow-auto custom-scrollbar flex items-center justify-center">
+                <!-- ✅ 固定尺寸容器（1000x600） -->
+                <div class="relative" style="width: 1000px; height: 600px; flex-shrink: 0;">
+                  <div v-if="mapLoaded" v-html="svgContent" class="absolute inset-0 w-full h-full opacity-30 pointer-events-none grayscale"></div>
+                  <canvas ref="heatmapCanvasRef" width="1000" height="600" class="absolute inset-0 w-full h-full opacity-90"></canvas>
+                  
+                  <!-- 准确的4色图例 -->
+                  <div class="absolute bottom-4 left-4 bg-slate-900/90 p-3 rounded border border-slate-700 backdrop-blur flex flex-col gap-1 shadow-lg">
+                     <div class="text-[10px] text-slate-400 mb-1">实时热力密度</div>
+                     <div class="w-32 h-3 rounded-sm" style="background: linear-gradient(to right, #0000ff, #00ff00, #ffff00, #ff0000);"></div>
+                     <div class="flex justify-between text-[8px] text-slate-500 px-0.5">
+                         <span>Low</span><span>High</span>
+                     </div>
+                  </div>
                 </div>
              </div>
           </div>
@@ -408,6 +420,26 @@ import {
 } from '@element-plus/icons-vue';
 import { ElMessage, ElNotification } from 'element-plus';
 
+// ======================= Logo 资源导入 =======================
+/*import logoA01 from '@/assets/logo/a-01.svg?raw';
+import logoA02 from '@/assets/logo/a-02.svg?raw';
+import logoA03 from '@/assets/logo/a-03.svg?raw';
+import logoB01 from '@/assets/logo/b-01.svg?raw';
+import logoB02 from '@/assets/logo/b-02.svg?raw';
+import logoB03 from '@/assets/logo/b-03.svg?raw';
+import logoC01 from '@/assets/logo/c-01.svg?raw';
+import logoC02 from '@/assets/logo/c-02.svg?raw';
+import logoD01 from '@/assets/logo/d-01.svg?raw';
+import logoD02 from '@/assets/logo/d-02.svg?raw';
+// Logo 映射表
+const logoMap: Record<string, string> = {
+  'A-01': logoA01, 'A-02': logoA02, 'A-03': logoA03,
+  'B-01': logoB01, 'B-02': logoB02, 'B-03': logoB03,
+  'C-01': logoC01, 'C-02': logoC02,
+  'D-01': logoD01, 'D-02': logoD02,
+};
+*/
+
 // ======================= 类型定义（完整） =======================
 type Role = 'visitor' | 'exhibitor' | 'security' | 'cleaner' | 'maintenance';
 type DeviceType = 'tag' | 'phone'; // 胸牌 / 手机
@@ -467,6 +499,51 @@ interface PatrolRoutePoint {
   progress: number;
 }
 
+// ======================= 物理碰撞体定义 =======================
+interface Collider {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  type: 'wall' | 'booth' | 'stage';
+}
+
+const colliders = ref<Collider[]>([
+  // 外墙
+  { x: 50, y: 50, w: 900, h: 4, type: 'wall' },      // 上墙
+  { x: 50, y: 546, w: 900, h: 4, type: 'wall' },     // 下墙
+  { x: 50, y: 50, w: 4, h: 500, type: 'wall' },      // 左墙
+  { x: 946, y: 50, w: 4, h: 500, type: 'wall' },     // 右墙
+  
+  // 内部隔断墙
+  { x: 300, y: 50, w: 4, h: 170, type: 'wall' },     // 左上隔断
+  { x: 300, y: 380, w: 4, h: 170, type: 'wall' },    // 左下隔断
+  { x: 700, y: 50, w: 4, h: 170, type: 'wall' },     // 右上隔断
+  { x: 700, y: 380, w: 4, h: 170, type: 'wall' },    // 右下隔断
+  
+  // A区展位
+  { x: 100, y: 80, w: 120, h: 80, type: 'booth' },   // A-01
+  { x: 100, y: 260, w: 120, h: 80, type: 'booth' },  // A-02
+  { x: 100, y: 440, w: 120, h: 80, type: 'booth' },  // A-03
+  
+  // B区展位
+  { x: 780, y: 80, w: 120, h: 80, type: 'booth' },   // B-01
+  { x: 780, y: 260, w: 120, h: 80, type: 'booth' },  // B-02
+  { x: 780, y: 440, w: 120, h: 80, type: 'booth' },  // B-03
+  
+  // C区展位（舞台上方）
+  { x: 360, y: 80, w: 120, h: 80, type: 'booth' },   // C-01
+  { x: 520, y: 80, w: 120, h: 80, type: 'booth' },   // C-02
+  
+  // D区展位（舞台下方）
+  { x: 360, y: 440, w: 120, h: 80, type: 'booth' },  // D-01
+  { x: 520, y: 440, w: 120, h: 80, type: 'booth' },  // D-02
+  
+  // 中央舞台（圆形近似为正方形碰撞体）
+  { x: 420, y: 220, w: 160, h: 160, type: 'stage' }, // Central Stage
+]);
+
+
 // ======================= 响应式变量 & 普通变量（顶层声明） =======================
 // 系统核心配置
 const isAdmin = ref(true);
@@ -519,10 +596,18 @@ const fence = { x: 620, y: 80, w: 180, h: 120 }; // VIP 区域
 const serverRoom = { x: 880, y: 480, w: 60, h: 60 }; // 机房禁区 (高危)
 const activeHotspots = [
   { name: '主舞台', x: 500, y: 300, radius: 90 },
-  { name: 'A-01 展位', x: 250, y: 120, radius: 40 },
-  { name: 'A-02 展位', x: 250, y: 300, radius: 40 },
-  { name: 'B-01 展位', x: 750, y: 120, radius: 40 },
+  { name: 'A-01 展位', x: 160, y: 120, radius: 40 },
+  { name: 'A-02 展位', x: 160, y: 300, radius: 40 },
+  { name: 'A-03 展位', x: 160, y: 480, radius: 40 },
+  { name: 'B-01 展位', x: 840, y: 120, radius: 40 },
+  { name: 'B-02 展位', x: 840, y: 300, radius: 40 },
+  { name: 'B-03 展位', x: 840, y: 480, radius: 40 },
+  { name: 'C-01 展位', x: 420, y: 120, radius: 40 },
+  { name: 'C-02 展位', x: 580, y: 120, radius: 40 },
+  { name: 'D-01 展位', x: 420, y: 480, radius: 40 },
+  { name: 'D-02 展位', x: 580, y: 480, radius: 40 },
 ];
+
 
 // ======================= 计算属性（顶层声明，模板可访问） =======================
 // 安全的监控缩放比例
@@ -549,13 +634,32 @@ const userLocationText = computed(() => {
   return myPerson.value ? '会展中心内部' : '定位获取中';
 });
 
-// 用户端相机样式
+// ✅ 新增：访客端相机偏移量（响应式）
+const userCameraOffset = reactive({ x: 0, y: 0 });
+
+// ✅ 修改：用户端相机样式（动态计算）
 const userCameraStyle = computed(() => {
+  if (!myPerson.value) {
+    return {
+      transform: 'scale(1.5) translate(0px, 0px)',
+      transformOrigin: 'center center',
+      transition: 'transform 0.3s ease-out'
+    };
+  }
+
+  // 计算相机偏移（让用户始终在屏幕中心）
+  // 地图原始尺寸 1000x600，缩放后需要反向偏移
+  const scale = 1.5; // 放大倍数
+  const centerX = -myPerson.value.x + 500 / scale; // 500 是容器宽度的一半
+  const centerY = -myPerson.value.y + 300 / scale; // 300 是容器高度的一半
+
   return {
-    transform: 'scale(1.2) translate(-100px, -50px)',
-    transformOrigin: 'center center'
+    transform: `scale(${scale}) translate(${centerX}px, ${centerY}px)`,
+    transformOrigin: '0 0',
+    transition: 'transform 0.3s ease-out' // 平滑过渡
   };
 });
+
 
 // 平均拥堵指数
 const avgCongestion = computed(() => {
@@ -684,46 +788,77 @@ const getStaffIcon = (role: Role) => {
 
 // ======================= 核心业务逻辑函数（顶层声明） =======================
 // 初始化人群
+// 初始化人群
 const initCrowd = () => {
   const arr: Person[] = [];
-  // 1. 自己 (Visitor, Phone)
+  
+  // 1. 自己 (Visitor, Phone) - 从入口生成
   const me = createPerson('visitor'); 
-  me.id = 99999; me.x = 500; me.y = 500; me.device = 'phone';
+  me.id = 99999; 
+  me.x = 500; // 入口中心
+  me.y = 530; 
+  me.device = 'phone';
   arr.push(me);
   
-  // 2. 观众 (150人)
-  for(let i=0; i<150; i++) arr.push(createPerson('visitor'));
+  // 2. 观众 (150人) - 全部从入口生成
+  for(let i=0; i<150; i++) {
+    arr.push(createPerson('visitor'));
+  }
   
-  // 3. 参展商 (20人)
-  for(let i=0; i<20; i++) arr.push(createPerson('exhibitor'));
+// 3. 参展商 (20人) - 随机分布在展位附近，并设置初始行为
+for(let i=0; i<20; i++) {
+  const exhibitor = createPerson('exhibitor');
+  // 参展商在展位附近生成
+  const booth = activeHotspots[Math.floor(Math.random() * activeHotspots.length)];
+  exhibitor.x = booth.x + (Math.random()-0.5) * 50;
+  exhibitor.y = booth.y + (Math.random()-0.5) * 50;
   
-  // 4. 工作人员
-  for(let i=0; i<5; i++) arr.push(createPerson('security')); // 安保
-  for(let i=0; i<3; i++) arr.push(createPerson('cleaner')); // 保洁
-  for(let i=0; i<2; i++) arr.push(createPerson('maintenance')); // 运维
+  // 🔥 参展商初始状态设置为游荡（避免长时间停留）
+  exhibitor.behaviorState = 'wandering';
+  exhibitor.targetHotspotIndex = Math.floor(Math.random() * activeHotspots.length);
+  
+  arr.push(exhibitor);
+}
+
+  
+  // 4. 工作人员 - 随机分布
+  for(let i=0; i<5; i++) {
+    const security = createPerson('security');
+    security.x = 100 + Math.random() * 800;
+    security.y = 100 + Math.random() * 400;
+    arr.push(security);
+  }
+  
+  for(let i=0; i<3; i++) {
+    const cleaner = createPerson('cleaner');
+    cleaner.x = 100 + Math.random() * 800;
+    cleaner.y = 100 + Math.random() * 400;
+    arr.push(cleaner);
+  }
+  
+  for(let i=0; i<2; i++) {
+    const maintenance = createPerson('maintenance');
+    maintenance.x = 100 + Math.random() * 800;
+    maintenance.y = 100 + Math.random() * 400;
+    arr.push(maintenance);
+  }
   
   crowd.value = arr;
 };
 
-// 创建单个人员
+
+// 创建单个人员（统一从入口生成）
 const createPerson = (role: Role): Person => {
-  let x: number | undefined;
-  let y: number | undefined;
-  let safe = false;
-  
-  // 简单防碰撞生成
-  while(!safe) {
-    x = 100 + Math.random() * 800;
-    y = 100 + Math.random() * 400;
-    if (x > 50 && x < 950 && y > 50 && y < 550) safe = true;
-  }
+  // 🔥 统一入口：安全出口上方，D-01 和 D-02 中间（坐标 440, 520 附近）
+  const entranceX = 440 + Math.random() * 120; // 440-560 范围（D-01 和 D-02 之间）
+  const entranceY = 520 + Math.random() * 20;  // 520-540 范围（出口上方）
   
   return {
     id: Math.random() * 10000,
-    x: x!,
-    y: y!,
-    vx: (Math.random()-0.5),
-    vy: (Math.random()-0.5),
+    x: entranceX,
+    y: entranceY,
+    vx: (Math.random()-0.5) * 0.5,
+    vy: (Math.random()-0.5) * 0.5,
     role,
     device: (role === 'visitor') ? 'phone' : 'tag',
     behaviorState: 'wandering',
@@ -733,6 +868,7 @@ const createPerson = (role: Role): Person => {
     isBusy: false
   };
 };
+
 
 // 初始化热力图图例
 const initHeatmapPalette = () => {
@@ -758,52 +894,55 @@ const initHeatmapPalette = () => {
   heatmapPalette.value = imageData.data;
 };
 
-// 绘制热力图
+// ✅ 修改：热力图绘制（适配固定尺寸）
 const drawHeatmap = () => {
   frameCount++;
   if (currentTab.value === 'heatmap' && heatmapCanvasRef.value && frameCount % 5 === 0) {
     const ctx = heatmapCanvasRef.value.getContext('2d');
-    if (!ctx || !adminHeatmapContainerRef.value) return;
+    if (!ctx) return;
     
-    const w = adminHeatmapContainerRef.value.clientWidth;
-    const h = adminHeatmapContainerRef.value.clientHeight;
+    // ✅ 固定尺寸 1000x600
+    const w = 1000;
+    const h = 600;
+    
+    // ✅ 确保 Canvas 尺寸正确
     if (heatmapCanvasRef.value.width !== w) {
       heatmapCanvasRef.value.width = w; 
       heatmapCanvasRef.value.height = h;
     }
     
-    ctx.clearRect(0,0,w,h);
+    ctx.clearRect(0, 0, w, h);
     ctx.globalAlpha = 0.08;
-    const scaleX = w/1000;
-    const scaleY = h/600;
     
+    // ✅ 无需缩放（1:1 映射）
     ctx.beginPath();
     crowd.value.forEach(p => {
-      ctx.moveTo(p.x*scaleX + 35, p.y*scaleY);
-      ctx.arc(p.x*scaleX, p.y*scaleY, 35, 0, Math.PI*2);
+      ctx.moveTo(p.x + 35, p.y);
+      ctx.arc(p.x, p.y, 35, 0, Math.PI * 2);
     });
     ctx.fillStyle = '#000'; 
     ctx.fill();
     
-    // 上色逻辑
-    const img = ctx.getImageData(0,0,w,h);
+    // 上色逻辑保持不变
+    const img = ctx.getImageData(0, 0, w, h);
     const d = img.data;
     if (heatmapPalette.value) {
       const pal = heatmapPalette.value;
-      for(let i=0; i<d.length; i+=4) {
-        const a = d[i+3];
+      for(let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
         if(a > 0) {
-          const off = a*4;
+          const off = a * 4;
           d[i] = pal[off]; 
-          d[i+1] = pal[off+1]; 
-          d[i+2] = pal[off+2];
-          d[i+3] = a < 64 ? a*2 : 220;
+          d[i + 1] = pal[off + 1]; 
+          d[i + 2] = pal[off + 2];
+          d[i + 3] = a < 64 ? a * 2 : 220;
         }
       }
     }
-    ctx.putImageData(img,0,0);
+    ctx.putImageData(img, 0, 0);
   }
 };
+
 
 // 机房入侵告警
 const triggerServerRoomAlert = (pid: number) => {
@@ -959,6 +1098,24 @@ const startNavigation = (dest: string) => {
 
 // 物理引擎核心循环
 const updatePhysics = () => {
+  // 🔧 调试：统计各状态人数
+  if (frameCount % 60 === 0) { // 每秒统计一次
+    const stats = {
+      wandering: 0,
+      approaching: 0,
+      staying: 0,
+      evacuating: 0
+    };
+    
+    crowd.value.forEach(p => {
+      if (p.role === 'visitor' || p.role === 'exhibitor') {
+        stats[p.behaviorState as keyof typeof stats]++;
+      }
+    });
+    
+    console.log('观众行为统计:', stats);
+  }
+
   if (!mapLoaded.value) return;
   
   // 1. 重置区域计数
@@ -968,20 +1125,62 @@ const updatePhysics = () => {
   crowd.value.forEach((p) => {
     // --- 应急撤离逻辑 ---
     if (isEmergency.value) {
-      const exitX = 500, exitY = 550;
-      const dx = exitX - p.x, dy = exitY - p.y;
+      // 🔥 修改出口坐标为更合理的位置（避免过低）
+      const exitX = 500;
+      const exitY = 530; // 从 550 改为 530（向上移动 20px）
+      const dx = exitX - p.x;
+      const dy = exitY - p.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 0) {
+  
+      if (dist > 5) { // 缩小到达判定距离
         p.vx = (dx/dist) * 2.5;
         p.vy = (dy/dist) * 2.5;
         p.x += p.vx; 
         p.y += p.vy;
+      } else {
+        // 🔥 到达出口后，保持在出口附近（避免卡住）
+        p.x = 480 + Math.random() * 40; // 480-520 范围
+        p.y = 520 + Math.random() * 15; // 520-535 范围
+        p.vx = 0;
+        p.vy = 0;
       }
       return;
     }
 
     // --- 角色特定逻辑 ---
-    // A. 安保巡检
+    // A. 安保/保洁自动巡逻（未接工单时）
+    if ((p.role === 'security' || p.role === 'cleaner') && !p.isBusy && !patrolMode.value) {
+      // 🔥 降低切换频率（从 0.008 改为 0.005）
+      if (!p.targetPointIdx || Math.random() < 0.005) {
+        p.targetPointIdx = Math.floor(Math.random() * activeHotspots.length);
+      }
+      
+      const target = activeHotspots[p.targetPointIdx];
+      if (target) {
+        const dx = target.x - p.x;
+        const dy = target.y - p.y;
+        const dist = Math.hypot(dx, dy);
+        
+        // 🔥 放宽到达判定（从 15 改为 25）
+        if (dist > 25) {
+          // 向目标移动（降低加速度）
+          p.vx += (dx/dist) * 0.12; // 从 0.18 降低到 0.12
+          p.vy += (dy/dist) * 0.12;
+        } else {
+          // 🔥 到达目标后立即切换
+          p.targetPointIdx = Math.floor(Math.random() * activeHotspots.length);
+        }
+        
+        // 🔥 防止速度过低（降低最低速度要求）
+        const speed = Math.hypot(p.vx, p.vy);
+        if (speed < 0.3) { // 从 0.5 降低到 0.3
+          p.vx += (Math.random()-0.5) * 0.6; // 从 1.0 降低到 0.6
+          p.vy += (Math.random()-0.5) * 0.6;
+        }
+      }
+    }
+    
+    // B. 安保巡检模式（手动启动）
     if (p.role === 'security' && patrolMode.value && !p.isBusy) {
       const target = patrolRoutePoints.value[p.targetPointIdx || 0];
       if (target) {
@@ -993,21 +1192,21 @@ const updatePhysics = () => {
             p.isChecking = false; 
             target.status = 'done'; 
             p.targetPointIdx = (p.targetPointIdx || 0) + 1;
+            if (p.targetPointIdx >= patrolRoutePoints.value.length) {
+              p.targetPointIdx = 0;
+            }
           }
         } else if (dist < 10) {
           p.isChecking = true;
         } else {
           p.vx = (dx/dist)*2.5; 
           p.vy = (dy/dist)*2.5;
-          p.x += p.vx; 
-          p.y += p.vy;
         }
-        return;
       }
     }
     
-    // B. 工作人员响应工单
-    if (p.isBusy && p.targetOrderId) {
+    // C. 工作人员响应工单
+    else if (p.isBusy && p.targetOrderId) {
       const order = workOrders.value.find(o => o.id === p.targetOrderId);
       if (order && order.status !== 'done') {
         const dx = order.targetX - p.x;
@@ -1016,7 +1215,6 @@ const updatePhysics = () => {
         
         if (dist < 10) {
           if (order.status !== 'processing') order.status = 'processing';
-          // 模拟处理完成
           if (Math.random() < 0.01) {
             order.status = 'done';
             p.isBusy = false;
@@ -1026,38 +1224,124 @@ const updatePhysics = () => {
         } else {
           p.vx = (dx/dist) * 3;
           p.vy = (dy/dist) * 3;
-          p.x += p.vx; 
-          p.y += p.vy;
         }
-        return;
       }
     }
 
-    // C. 普通观众游荡/聚集
-    if (!p.isBusy && (p.role === 'visitor' || p.role === 'exhibitor')) {
-      if (p.behaviorState === 'wandering' && Math.random() < 0.005) {
-        p.behaviorState = 'approaching';
-        p.targetHotspotIndex = Math.floor(Math.random() * activeHotspots.length);
-      } else if (p.behaviorState === 'approaching') {
-        const target = activeHotspots[p.targetHotspotIndex];
-        if (target) {
-          const dx = target.x - p.x, dy = target.y - p.y, dist = Math.hypot(dx, dy);
-          p.vx += (dx/dist)*0.04; 
-          p.vy += (dy/dist)*0.04;
-          if (dist < target.radius) { 
-            p.behaviorState = 'staying'; 
-            p.stayTimer = 300; 
+    // D. 普通观众真实参展行为
+    else if (p.role === 'visitor' || p.role === 'exhibitor') {
+      if (p.behaviorState === 'wandering') {
+        // 🔥 刚进入会场，立即选择第一个目标展位
+        if (p.targetHotspotIndex === -1) {
+          p.targetHotspotIndex = Math.floor(Math.random() * activeHotspots.length);
+          p.behaviorState = 'approaching';
+        } else {
+          // 随机游荡（探索模式）
+          p.vx += (Math.random()-0.5) * 0.3; // 从 0.4 降低到 0.3
+          p.vy += (Math.random()-0.5) * 0.3;
+          
+          // 🔥 提高被展位吸引的概率
+          if (Math.random() < 0.03) {
+            p.behaviorState = 'approaching';
+            let newTarget = Math.floor(Math.random() * activeHotspots.length);
+            let attempts = 0;
+            while (newTarget === p.targetHotspotIndex && attempts < 10) {
+              newTarget = Math.floor(Math.random() * activeHotspots.length);
+              attempts++;
+            }
+            p.targetHotspotIndex = newTarget;
           }
         }
-      } else if (p.behaviorState === 'staying') {
-        p.vx *= 0.5; 
-        p.vy *= 0.5; 
+      } 
+      else if (p.behaviorState === 'approaching') {
+        const target = activeHotspots[p.targetHotspotIndex];
+        if (target) {
+          const dx = target.x - p.x;
+          const dy = target.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          
+          // 🔥 大幅放宽到达判定（从 radius + 35 改为 radius + 50）
+          if (dist < target.radius + 50) { 
+            p.behaviorState = 'staying'; 
+            p.stayTimer = 60 + Math.random() * 60;
+            console.log(`观众 ${p.id.toFixed(0)} 到达展位 ${target.name}`);
+          } else {
+            // 向目标移动（降低加速度）
+            p.vx += (dx/dist) * 0.15; // 从 0.25 降低到 0.15
+            p.vy += (dy/dist) * 0.15;
+            
+            // 🔥 优化防卡住逻辑
+            const speed = Math.hypot(p.vx, p.vy);
+            if (speed < 0.1 && dist > 50) { // 降低速度阈值
+              // 强制切换到下一个展位（避免长时间卡住）
+              let newTarget = Math.floor(Math.random() * activeHotspots.length);
+              let attempts = 0;
+              while (newTarget === p.targetHotspotIndex && attempts < 10) {
+                newTarget = Math.floor(Math.random() * activeHotspots.length);
+                attempts++;
+              }
+              p.targetHotspotIndex = newTarget;
+              p.vx = (Math.random()-0.5) * 1.0;
+              p.vy = (Math.random()-0.5) * 1.0;
+              console.warn(`观众 ${p.id.toFixed(0)} 卡住，强制切换目标`);
+            }
+          }
+        }
+      } 
+      else if (p.behaviorState === 'staying') {
+        // 在展位停留
+        p.vx *= 0.85;
+        p.vy *= 0.85;
         p.stayTimer--;
-        if (p.stayTimer <= 0) p.behaviorState = 'wandering';
+        
+        if (p.stayTimer <= 0) {
+          const rand = Math.random();
+          
+          if (rand < 0.80) {
+            // 80% 概率：前往下一个展位
+            p.behaviorState = 'approaching';
+            
+            let newTarget = Math.floor(Math.random() * activeHotspots.length);
+            let attempts = 0;
+            while (newTarget === p.targetHotspotIndex && attempts < 10) {
+              newTarget = Math.floor(Math.random() * activeHotspots.length);
+              attempts++;
+            }
+            p.targetHotspotIndex = newTarget;
+            
+            console.log(`观众 ${p.id.toFixed(0)} 前往下一个展位: ${activeHotspots[newTarget].name}`);
+          } 
+          else if (rand < 0.95) {
+            p.behaviorState = 'wandering';
+          } 
+          else {
+            p.behaviorState = 'evacuating';
+          }
+        }
+      }
+      else if (p.behaviorState === 'evacuating') {
+        const exitX = 500;
+        const exitY = 530;
+        const dx = exitX - p.x;
+        const dy = exitY - p.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist > 8) {
+          p.vx += (dx/dist) * 0.18; // 从 0.22 降低到 0.18
+          p.vy += (dy/dist) * 0.18;
+        } else {
+          // 重新从入口生成
+          p.x = 440 + Math.random() * 120;
+          p.y = 520 + Math.random() * 20;
+          p.behaviorState = 'wandering';
+          p.targetHotspotIndex = -1;
+          p.vx = (Math.random()-0.5) * 0.5;
+          p.vy = (Math.random()-0.5) * 0.5;
+        }
       }
     }
     
-    // D. 导航逻辑 (自己)
+    // E. 导航逻辑 (自己)
     if (p.id === myPersonId.value && isNavigating.value) {
       const dx = navTarget.x - p.x, dy = navTarget.y - p.y, dist = Math.hypot(dx, dy);
       if (dist > 15) { 
@@ -1070,29 +1354,73 @@ const updatePhysics = () => {
     }
 
     // --- 通用物理更新 ---
-    p.vx += (Math.random()-0.5)*0.2; 
-    p.vy += (Math.random()-0.5)*0.2;
-    
-    // 限制速度
+    // 🔥 降低速度上限（从 2.8 改为 1.5）
     const v = Math.hypot(p.vx, p.vy);
-    const limit = (p.isBusy || isEmergency.value) ? 3.5 : 1.5;
+    const limit = (p.isBusy || isEmergency.value) ? 2.5 : 1.5; // 正常速度 1.5，工作人员 2.5
     if (v > limit) { 
       p.vx = (p.vx/v)*limit; 
       p.vy = (p.vy/v)*limit; 
     }
-    
-    // 碰撞反弹
+
+    // 🔥 优化碰撞检测（更宽松）
     let nextX = p.x + p.vx; 
     let nextY = p.y + p.vy;
-    if (nextX < 50 || nextX > 950 || nextY < 50 || nextY > 550) {
-      p.vx *= -0.8; 
-      p.vy *= -0.8; 
+
+    // 检查下一帧位置是否碰撞
+    if (checkCollision(nextX, nextY, 3)) {
+      // 尝试仅 X 方向移动
+      if (!checkCollision(nextX, p.y, 3)) {
+        p.x = nextX;
+        p.vy *= -0.3;
+      } 
+      // 尝试仅 Y 方向移动
+      else if (!checkCollision(p.x, nextY, 3)) {
+        p.y = nextY;
+        p.vx *= -0.3;
+      } 
+      // 完全卡住，添加随机扰动
+      else {
+        p.vx += (Math.random()-0.5) * 0.5; // 从 0.8 降低到 0.5
+        p.vy += (Math.random()-0.5) * 0.5;
+      }
     } else {
+      // 无碰撞，正常移动
       p.x = nextX; 
       p.y = nextY;
     }
-    p.vx *= 0.96; 
+
+    // 边界检测
+    if (p.x < 55) { p.x = 55; p.vx = Math.abs(p.vx) * 0.5; }
+    if (p.x > 945) { p.x = 945; p.vx = -Math.abs(p.vx) * 0.5; }
+    if (p.y < 55) { p.y = 55; p.vy = Math.abs(p.vy) * 0.5; }
+    if (p.y > 545) { p.y = 545; p.vy = -Math.abs(p.vy) * 0.5; }
+
+    // 🔥 恢复正常阻尼（从 0.98 改回 0.96）
+    p.vx *= 0.96;
     p.vy *= 0.96;
+
+    // 🔥 全局防卡死机制（兜底）- 第四个改动
+    if (!isEmergency.value && p.role !== 'maintenance') {
+      const speed = Math.hypot(p.vx, p.vy);
+      
+      // 如果速度接近 0 且不在停留状态，添加随机扰动
+      if (speed < 0.05 && p.behaviorState !== 'staying') {
+        p.vx += (Math.random()-0.5) * 0.8;
+        p.vy += (Math.random()-0.5) * 0.8;
+        
+        // 如果是观众且在 approaching 状态，强制切换目标
+        if ((p.role === 'visitor' || p.role === 'exhibitor') && p.behaviorState === 'approaching') {
+          let newTarget = Math.floor(Math.random() * activeHotspots.length);
+          let attempts = 0;
+          while (newTarget === p.targetHotspotIndex && attempts < 10) {
+            newTarget = Math.floor(Math.random() * activeHotspots.length);
+            attempts++;
+          }
+          p.targetHotspotIndex = newTarget;
+          console.warn(`全局防卡死：观众 ${p.id.toFixed(0)} 强制切换目标`);
+        }
+      }
+    }
 
     // --- 区域统计与越界检测 ---
     // 1. 机房越界检测
@@ -1110,71 +1438,99 @@ const updatePhysics = () => {
   drawHeatmap();
 };
 
+
+
 // ======================= 地图 & 窗口监听初始化（顶层声明） =======================
 // ======================= 地图加载函数 (完整版) =======================
 const loadMap = () => {
-  // SVG 内容：包含完整的 A01-A03, B01-B03 展位, 中央舞台, 以及墙体结构
+  // 动态生成展位 Logo
+  
+  const generateBoothSVG = (x: number, y: number, w: number, h: number, id: string) => {
+    //const logoContent = logoMap[id] || '<circle cx="50" cy="50" r="30" fill="#475569"/>';
+
+    // 🔥 优化 Logo 尺寸和位置
+    
+    const logoWidth = w * 0.6;   // 增加到 60%
+    const logoHeight = h * 0.55; // 增加到 55%
+    const logoX = x + (w - logoWidth) / 2; // 水平居中
+    const logoY = y + 8; // 距离顶部 8px
+
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+        <text x="${x + w/2}" y="${y + h - 8}" fill="#94a3b8" font-size="11" text-anchor="middle" font-weight="bold">${id}</text>
+
+      </g>
+    `;
+  };
+
+
+
   svgContent.value = `
     <svg viewBox="0 0 1000 600" width="100%" height="100%">
       <defs>
-        <!-- 网格背景定义 -->
         <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
           <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="1"/>
         </pattern>
-        <!-- 应急路线箭头定义 -->
         <marker id="arrow" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto" markerUnits="strokeWidth">
           <path d="M0,0 L0,6 L9,3 z" fill="#ef4444" />
         </marker>
+        <!-- 舞台聚光灯效果 -->
+        <radialGradient id="spotlight">
+          <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+        </radialGradient>
       </defs>
       
       <!-- 背景网格 -->
       <rect width="100%" height="100%" fill="url(#grid)" />
       
       <!-- 墙体结构 -->
-      <!-- 外墙 -->
       <path d="M50,50 H950 V550 H50 Z" fill="none" stroke="#64748b" stroke-width="4" />
-      <!-- 内部隔断墙 (左侧) -->
       <path d="M300,50 V220" stroke="#64748b" stroke-width="4" />
       <path d="M300,380 V550" stroke="#64748b" stroke-width="4" />
-      <!-- 内部隔断墙 (右侧) -->
       <path d="M700,50 V220" stroke="#64748b" stroke-width="4" />
       <path d="M700,380 V550" stroke="#64748b" stroke-width="4" />
       
-      <!-- A区展位 (A-01 ~ A-03) -->
-      <g fill="#1e293b" stroke="#334155" stroke-width="2">
-        <!-- A-01 -->
-        <rect x="100" y="80" width="120" height="80" rx="4" />
-        <text x="160" y="125" fill="#94a3b8" font-size="14" text-anchor="middle">A-01</text>
-        
-        <!-- A-02 -->
-        <rect x="100" y="260" width="120" height="80" rx="4" />
-        <text x="160" y="305" fill="#94a3b8" font-size="14" text-anchor="middle">A-02</text>
-        
-        <!-- A-03 -->
-        <rect x="100" y="440" width="120" height="80" rx="4" />
-        <text x="160" y="485" fill="#94a3b8" font-size="14" text-anchor="middle">A-03</text>
-      </g>
+      <!-- A区展位 -->
+      ${generateBoothSVG(100, 80, 120, 80, 'A-01')}
+      ${generateBoothSVG(100, 260, 120, 80, 'A-02')}
+      ${generateBoothSVG(100, 440, 120, 80, 'A-03')}
       
-      <!-- B区展位 (B-01 ~ B-03) -->
-      <g fill="#1e293b" stroke="#334155" stroke-width="2">
-        <!-- B-01 -->
-        <rect x="780" y="80" width="120" height="80" rx="4" />
-        <text x="840" y="125" fill="#94a3b8" font-size="14" text-anchor="middle">B-01</text>
-        
-        <!-- B-02 -->
-        <rect x="780" y="260" width="120" height="80" rx="4" />
-        <text x="840" y="305" fill="#94a3b8" font-size="14" text-anchor="middle">B-02</text>
-        
-        <!-- B-03 -->
-        <rect x="780" y="440" width="120" height="80" rx="4" />
-        <text x="840" y="485" fill="#94a3b8" font-size="14" text-anchor="middle">B-03</text>
-      </g>
+      <!-- B区展位 -->
+      ${generateBoothSVG(780, 80, 120, 80, 'B-01')}
+      ${generateBoothSVG(780, 260, 120, 80, 'B-02')}
+      ${generateBoothSVG(780, 440, 120, 80, 'B-03')}
+      
+      <!-- C区展位（舞台上方） -->
+      ${generateBoothSVG(360, 80, 120, 80, 'C-01')}
+      ${generateBoothSVG(520, 80, 120, 80, 'C-02')}
+      
+      <!-- D区展位（舞台下方） -->
+      ${generateBoothSVG(360, 440, 120, 80, 'D-01')}
+      ${generateBoothSVG(520, 440, 120, 80, 'D-02')}
 
-      <!-- 中央舞台装饰 -->
-      <circle cx="500" cy="300" r="100" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="8,4" opacity="0.3" />
-      <text x="500" y="305" fill="#64748b" font-family="monospace" font-size="20" text-anchor="middle" font-weight="bold" opacity="0.5">CENTRAL STAGE</text>
+      <!-- 中央舞台（实体结构） -->
+      <g id="central-stage">
+        <!-- 舞台底座 -->
+        <rect x="420" y="220" width="160" height="160" rx="8" fill="#0f172a" stroke="#475569" stroke-width="3"/>
+        
+        <!-- 聚光灯效果 -->
+        <circle cx="500" cy="300" r="100" fill="url(#spotlight)" />
+        
+        <!-- 舞台装饰线条 -->
+        <circle cx="500" cy="300" r="70" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="8,4" opacity="0.6" />
+        <circle cx="500" cy="300" r="50" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,2" opacity="0.4" />
+        
+        <!-- 舞台文字 -->
+        <text x="500" y="295" fill="#fbbf24" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" font-weight="bold" opacity="0.8">CENTRAL</text>
+        <text x="500" y="315" fill="#fbbf24" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" font-weight="bold" opacity="0.8">STAGE</text>
+        
+        <!-- 舞台边缘装饰 -->
+        <path d="M420,300 L440,300 M560,300 L580,300 M500,220 L500,240 M500,360 L500,380" stroke="#fbbf24" stroke-width="2" opacity="0.5"/>
+      </g>
       
-      <!-- 底部设施标识 -->
+      <!-- 底部出口标识 -->
       <text x="500" y="580" fill="#22c55e" font-weight="bold" font-size="16" text-anchor="middle" letter-spacing="4">EXIT 安全出口</text>
     </svg>`;
   
@@ -1182,20 +1538,76 @@ const loadMap = () => {
   initCrowd();
 };
 
+// ======================= 碰撞检测函数 =======================
+/**
+ * AABB 碰撞检测（轴对齐包围盒）
+ * @param px 人员 X 坐标
+ * @param py 人员 Y 坐标
+ * @param radius 人员半径（默认3px，更宽松）
+ * @returns 是否发生碰撞
+ */
+const checkCollision = (px: number, py: number, radius: number = 3): boolean => {
+  for (const col of colliders.value) {
+    // 扩展碰撞体边界（考虑人员半径）
+    const left = col.x - radius;
+    const right = col.x + col.w + radius;
+    const top = col.y - radius;
+    const bottom = col.y + col.h + radius;
+    
+    if (px > left && px < right && py > top && py < bottom) {
+      return true; // 发生碰撞
+    }
+  }
+  return false;
+};
+
+
+/**
+ * 碰撞响应（推出碰撞体）
+ * @param p 人员对象
+ */
+const resolveCollision = (p: Person) => {
+  for (const col of colliders.value) {
+    const radius = 5;
+    const left = col.x - radius;
+    const right = col.x + col.w + radius;
+    const top = col.y - radius;
+    const bottom = col.y + col.h + radius;
+    
+    if (p.x > left && p.x < right && p.y > top && p.y < bottom) {
+      // 计算最短推出距离
+      const distLeft = p.x - left;
+      const distRight = right - p.x;
+      const distTop = p.y - top;
+      const distBottom = bottom - p.y;
+      
+      const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+      
+      // 沿最短方向推出
+      if (minDist === distLeft) {
+        p.x = left - 1;
+        p.vx = Math.abs(p.vx) * -0.5; // 反弹
+      } else if (minDist === distRight) {
+        p.x = right + 1;
+        p.vx = Math.abs(p.vx) * 0.5;
+      } else if (minDist === distTop) {
+        p.y = top - 1;
+        p.vy = Math.abs(p.vy) * -0.5;
+      } else {
+        p.y = bottom + 1;
+        p.vy = Math.abs(p.vy) * 0.5;
+      }
+      
+      return; // 只处理第一个碰撞
+    }
+  }
+};
+
 
 // 窗口大小监听（仅声明一次，无重复）
 const setupResizeObserver = () => {
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.target === adminMonitorRef.value && entry.contentRect.width > 0) {
-        monitorScale.x = entry.contentRect.width / 1000;
-        monitorScale.y = entry.contentRect.height / 600;
-      }
-    }
-  });
-  if (adminMonitorRef.value) {
-    resizeObserver.observe(adminMonitorRef.value);
-  }
+  monitorScale.x = 1;
+  monitorScale.y = 1;
 };
 
 // ======================= 生命周期钩子 =======================
@@ -1221,9 +1633,7 @@ onMounted(() => {
 
 // 卸载时销毁资源
 onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-  }
+
 });
 
 </script>

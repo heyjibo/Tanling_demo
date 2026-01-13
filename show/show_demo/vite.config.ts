@@ -12,7 +12,7 @@ export default defineConfig({
     allowedHosts: [
       'localhost', // 保留本地访问（可选，默认已允许）
       '127.0.0.1', // 保留本地访问（可选，默认已允许）
-      '7866126c62f8.ngrok-free.app' // 添加localtunnel生成的公网域名
+      'hrs-cod-arcade-synopsis.trycloudflare.com' // 添加localtunnel生成的公网域名
     ]
   }
 })
