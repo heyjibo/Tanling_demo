@@ -7,6 +7,7 @@ import axios from 'axios';
 import SevenLayerTemperatureTable from './SevenLayerTemperatureTable.vue';
 import {ArrowRight, HomeFilled} from "@element-plus/icons-vue";
 import {ElMessage} from "element-plus";
+import {changeTemperatureObject, parseHZYTime} from "@/utils";
 
 export default defineComponent({
   name: "SectionFour",
@@ -17,7 +18,8 @@ export default defineComponent({
   },
   data(){
     return {
-      title: null,
+      hzyTime: '',
+      title: '连云港石化产业基地绿色功能工程智慧运营平台',
       configId: null,
       interval: null as NodeJS.Timeout | null,
       MediumTemperature: 30,
@@ -155,17 +157,18 @@ export default defineComponent({
   methods:{
     async fetchData() {
       try {
-        const meteResponse = await axios.get('http://218.92.43.42:7072/lsgn/api/get/mete/list');
-        this.meteData = meteResponse.data;
+        const meteResponse = await axios.get('http://localhost/lsgn/api/get/fyzn/meteInfo?' + this.hzyTime);
+        this.meteData = meteResponse;
 
-        const displaceResponse = await axios.get('http://218.92.43.42:7072/lsgn/api/get/displace/list');
-        this.displaceData = displaceResponse.data;
+        const displaceResponse = await axios.get('http://localhost/lsgn/api/get/fyzn/displaceInfo?' + this.hzyTime);
+        this.displaceData = displaceResponse;
 
-        const thermResponse = await axios.get('http://218.92.43.42:7072/lsgn/api/get/therm/list');
-        this.thermData = thermResponse.data;
+        const thermResponse = await axios.get('http://localhost/lsgn/api/get/fyzn/thermInfo?' + this.hzyTime);
+        this.thermData = thermResponse;
+        this.thermData.data = this.thermData.data.map(item => changeTemperatureObject(item))
 
-        const thermPointResponse = await axios.get('http://218.92.43.42:7072/lsgn/api/get/thermPoint/list');
-        this.thermPointData = thermPointResponse.data;
+        const thermPointResponse = await axios.get('http://localhost/lsgn/api/get/fyzn/thermPointsInfo?' + this.hzyTime);
+        this.thermPointData = thermPointResponse;
 
         console.log('meteData:', this.meteData);
         console.log('displaceData:', this.displaceData);
@@ -237,8 +240,9 @@ export default defineComponent({
     }
   },
   created() {
+    this.hzyTime = parseHZYTime(new Date());
     // 获取项目标题
-    this.fetchProjectTitle();
+    // this.fetchProjectTitle();
     // 调用一次 fetchData 函数
     this.fetchData();
     this.updateHeatLossValues();

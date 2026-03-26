@@ -16,19 +16,19 @@ export default defineComponent({
   methods: {
     setDefaultDateRange() {
       const endTime = new Date(); // 当前时间
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000); // 一小时前
+      const startTime = new Date(endTime.getTime() - 5 * 60 * 1000); // 一小时前
       this.dateRange = [startTime, endTime]; // 设置默认时间范围
     },
     async fetchData() {
       const startTime = this.formatDate(this.dateRange[0]); // 格式化开始时间
       const endTime = this.formatDate(this.dateRange[1]); // 格式化结束时间
-      const response = await fetch(`http://218.92.43.42:7072/lsgn/api/get/thermPoint/history?startTime=${startTime}&endTime=${endTime}`);
+      const response = await fetch(`http://localhost/lsgn/api/get/fyzn/thermPointsInfo?startTime=${startTime}&endTime=${endTime}`);
       const result = await response.json();
       console.log(result);
 
-      if (result.code === 0) {
-        this.processData(result.data);
-      }
+      // if (result.code === 0) {
+        this.processData(result);
+      // }
     },
     onDateChange(value) {
       console.log('选择的日期范围:', value);
@@ -38,9 +38,10 @@ export default defineComponent({
       const tempData = {};
 
       // 初始化数据结构
-      data.forEach(item => {
-        item.historyData.forEach(entry => { // 遍历 historyData 数组
-          const date = entry.date; // 获取每条历史数据的日期
+      data?.forEach(item => {
+        // item.historyData.forEach(entry => { // 遍历 historyData 数组
+        //   const date = entry.date; // 获取每条历史数据的日期
+        const date = item.receiveTime
 
           if (!tempData[date]) {
             tempData[date] = {
@@ -67,41 +68,41 @@ export default defineComponent({
           }
 
           // 根据 location 填充温度、压力和压差数据
-          switch (item.remark) {
+          switch (item.location) {
             case "01跨南中心河2号管测点":
-              tempData[date].location1Temperature = entry.temperature;
-              tempData[date].location1Pressure = entry.pressure;
-              tempData[date].location1DiffPressure = entry.diffPressure;
+              tempData[date].location1Temperature = item.temperature;
+              tempData[date].location1Pressure = item.pressure;
+              tempData[date].location1DiffPressure = item.diffPressure;
               break;
             case "001核电流量计2号管测点":
-              tempData[date].location2Temperature = entry.temperature;
-              tempData[date].location2Pressure = entry.pressure;
-              tempData[date].location2DiffPressure = entry.diffPressure;
+              tempData[date].location2Temperature = item.temperature;
+              tempData[date].location2Pressure = item.pressure;
+              tempData[date].location2DiffPressure = item.diffPressure;
               break;
             case "核电内-2-副":
-              tempData[date].location3Temperature = entry.temperature;
-              tempData[date].location3Pressure = entry.pressure;
-              tempData[date].location3DiffPressure = entry.diffPressure;
+              tempData[date].location3Temperature = item.temperature;
+              tempData[date].location3Pressure = item.pressure;
+              tempData[date].location3DiffPressure = item.diffPressure;
               break;
             case "21西港河北(G-G010)2号管流量（未核对）":
-              tempData[date].location4Temperature = entry.temperature;
-              tempData[date].location4Pressure = entry.pressure;
-              tempData[date].location4DiffPressure = entry.diffPressure;
+              tempData[date].location4Temperature = item.temperature;
+              tempData[date].location4Pressure = item.pressure;
+              tempData[date].location4DiffPressure = item.diffPressure;
               break;
             case "03烧香河北(B-H034)2号管测点":
-              tempData[date].location5Temperature = entry.temperature;
-              tempData[date].location5Pressure = entry.pressure;
-              tempData[date].location5DiffPressure = entry.diffPressure;
+              tempData[date].location5Temperature = item.temperature;
+              tempData[date].location5Pressure = item.pressure;
+              tempData[date].location5DiffPressure = item.diffPressure;
               break;
             case "04烧香河南(B-H034)2号管测点":
-              tempData[date].location6Temperature = entry.temperature;
-              tempData[date].location6Pressure = entry.pressure;
-              tempData[date].location6DiffPressure = entry.diffPressure;
+              tempData[date].location6Temperature = item.temperature;
+              tempData[date].location6Pressure = item.pressure;
+              tempData[date].location6DiffPressure = item.diffPressure;
               break;
             default:
               break;
           }
-        });
+        // });
       });
 
       // 将 tempData 转换为数组格式

@@ -1,6 +1,7 @@
 <script>
 import {defineComponent} from 'vue'
 import * as XLSX from 'xlsx';
+import {changeTemperatureObject} from "@/utils/index.ts";
 
 export default defineComponent({
   name: "LayerTemperatureHistoricalTrends",
@@ -59,19 +60,21 @@ export default defineComponent({
   methods: {
     setDefaultDateRange() {
       const endTime = new Date(); // 当前时间
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000); // 一小时前
+      const startTime = new Date(endTime.getTime() - 5 * 60 * 1000); // 一分钟前
       this.dateRange = [startTime, endTime]; // 设置默认时间范围
     },
     async fetchData() {
       try {
         const startTime = this.formatDate(this.dateRange[0]); // 格式化开始时间
         const endTime = this.formatDate(this.dateRange[1]); // 格式化结束时间
-        const response = await fetch(`http://218.92.43.42:7072/lsgn/api/get/therm/history?startTime=${startTime}&endTime=${endTime}`);
+        // http://218.92.43.42:14300/lsgn/api/get/fyzn/thermInfo?startTime=2026-03-25%2012:25:30&endTime=2026-03-25%2012:26:30
+        const response = await fetch(`http://localhost/lsgn/api/get/fyzn/thermInfo?startTime=${startTime}&endTime=${endTime}`);
         const result = await response.json();
-        console.log(result);
+        console.log("result:", result);
 
-        if (result.code === 0) {
-          this.originalData = result.data; // 获取返回的数据
+        // if (result.code === 0) {
+          this.originalData = result; // 获取返回的数据
+          this.originalData = this.originalData.map(item => changeTemperatureObject(item))
           if (this.originalData && Array.isArray(this.originalData) && this.originalData.length > 0) {
             this.tableHeaders = this.generateTableHeaders();
             console.log('header:',this.tableHeaders);
@@ -82,7 +85,7 @@ export default defineComponent({
           } else {
             console.error('没有返回有效的设备数据');
           }
-        }
+        // }
       } catch (error) {
         console.error("温度数据请求失败:", error);
       }
@@ -162,19 +165,24 @@ export default defineComponent({
       this.originalData.forEach(deviceData => {
         const deviceId = deviceData.idDevice; // 获取设备ID
 
-        deviceData.historyData.forEach(entry => {
-          const time = entry.date; // 获取时间点
+        // deviceData.forEach(entry => {
+        //   const time = entry.date; // 获取时间点
+        // 获取时间点
+        const time = deviceData.receiveTime;
+        if (!temperatureData[time]) {
+          temperatureData[time] = {}
+        }
 
-          Object.keys(entry).forEach(key => {
+          Object.keys(deviceData).forEach(key => {
             if (key.startsWith('temperature')) {
-              const temperatureKey = `${deviceId}${key}`;
-              if (!temperatureData[temperatureKey]) {
-                temperatureData[temperatureKey] = [];
+              const temperatureKey = `${deviceId}${key}`; // "WG783NF6523071402854-185temperature1"
+              if (!temperatureData[time][temperatureKey]) {
+                temperatureData[time][temperatureKey] = [];
               }
-              temperatureData[temperatureKey].push(entry[key]?.value || null);
+              temperatureData[time][temperatureKey].push(deviceData[key]?.value || null);
             }
           });
-        });
+        // });
       });
 
       this.temperatureData = temperatureData;
@@ -182,7 +190,9 @@ export default defineComponent({
 
     generateTableData() {
       const tableRows = [];
-      const timeData = this.originalData[0]?.historyData || [];
+      // const timeData = this.originalData || [];
+      const timeData = [...new Set(this.originalData.map(item => item.receiveTime))]
+      console.log("timeData:", timeData)
 
       const point4Pipes = ['一号管', '二号管']; // 点位四的管道类型
       const tempTypes = ['温度1', '温度2', '温度3']; // 温度类型
@@ -192,8 +202,8 @@ export default defineComponent({
         return []; // 如果 pointData 没有被赋值，直接返回空数组
       }
       console.log("pointData:",this.pointData);
-      timeData.forEach((entry, timeIndex) => {
-        const row = { "时间": entry.date }; // 添加时间列
+      timeData.forEach((time, timeIndex) => {
+        const row = { "时间": time }; // 添加时间列
 
         if (this.selectedPoint === 'point4') {
           console.log("开始处理点位四的数据...");
@@ -213,7 +223,7 @@ export default defineComponent({
               const deviceNumber = deviceId.split('-')[0];  // 获取设备编号
               const deviceTempIndex = parseInt(deviceId.split('-')[1]);  // 获取温度索引
               const temperatureKey = `${deviceNumber}temperature${deviceTempIndex}`;
-              const comparisonKey = Object.keys(this.temperatureData).find(key => {
+              const comparisonKey = Object.keys(this.temperatureData[time]).find(key => {
                 const comparisonKeySuffix = key.split('-').pop();
                 return comparisonKeySuffix === temperatureKey;
               });
@@ -222,8 +232,8 @@ export default defineComponent({
                 console.error(`    没有找到匹配的键: ${temperatureKey}`);
                 return; // 如果没有找到匹配的温度键，跳过此数据
               }
-              const temperatureValue = this.temperatureData[comparisonKey]
-                  ? this.temperatureData[comparisonKey][timeIndex]
+              const temperatureValue = this.temperatureData[time][comparisonKey]
+                  ? this.temperatureData[time][comparisonKey].shift()
                   : null;
               const formattedTemperature = temperatureValue !== null ? `${temperatureValue}℃` : null;
               const columnIndex = layerIndex * this.pointData[0].length  + tempIndex + 1;
@@ -237,13 +247,13 @@ export default defineComponent({
               const deviceNumber = deviceId.split('-')[0];
               const deviceTempIndex = parseInt(deviceId.split('-')[1]);
               const temperatureKey = `${deviceNumber}temperature${deviceTempIndex}`;
-              const comparisonKey = Object.keys(this.temperatureData).find(key => {
+              const comparisonKey = Object.keys(this.temperatureData[time]).find(key => {
                 const comparisonKeySuffix = key.split('-').pop();
                 return comparisonKeySuffix === temperatureKey;
               });
 
-              const temperatureValue = this.temperatureData[comparisonKey]
-                  ? this.temperatureData[comparisonKey][timeIndex]
+              const temperatureValue = this.temperatureData[time][comparisonKey]
+                  ? this.temperatureData[time][comparisonKey].shift()
                   : null;
               const formattedTemperature = temperatureValue !== null ? `${temperatureValue}℃` : null;
               const columnIndex = layerIndex * 9 + tempIndex + 1;

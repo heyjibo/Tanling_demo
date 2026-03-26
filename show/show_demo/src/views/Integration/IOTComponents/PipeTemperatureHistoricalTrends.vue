@@ -81,11 +81,12 @@ export default defineComponent({
       const endTime = this.formatDate(dateRange[1]); // 格式化结束时间
 
       try {
-        console.log(`http://218.92.43.42:7072/lsgn/api/get/thermPoint/history?startTime=${startTime}&endTime=${endTime}`);
-        const response = await fetch(`http://218.92.43.42:7072/lsgn/api/get/thermPoint/history?startTime=${startTime}&endTime=${endTime}`);
+        console.log(`http://localhost/lsgn/api/get/fyzn/thermPointsInfo?startTime=${startTime}&endTime=${endTime}`);
+        const response = await fetch(`http://localhost/lsgn/api/get/fyzn/thermPointsInfo?startTime=${startTime}&endTime=${endTime}`);
         const result = await response.json();
+        console.log("result:", result);
 
-        if (result.code === 0) {
+        // if (result.code === 0) {
           // 提取温度数据
           const targetLocations = [
             "01跨南中心河2号管测点",
@@ -103,17 +104,17 @@ export default defineComponent({
           });
 
           // 处理历史数据
-          result.data.forEach(deviceData => {
-            if (targetLocations.includes(deviceData.remark)) {
-              deviceData.historyData.forEach(entry => {
-                const index = targetLocations.indexOf(deviceData.remark);
+          result.forEach(deviceData => {
+            if (targetLocations.includes(deviceData.location)) {
+              // deviceData.forEach(entry => {
+                const index = targetLocations.indexOf(deviceData.location);
                 if (index !== -1) {
-                  temperatures[index].dates.push(entry.date);
+                  temperatures[index].dates.push(deviceData.receiveTime);
                   // 检查温度值是否为 0，并用前一个有效值替代
                   const lastTemperature = temperatures[index].temperatures.length > 0 ? temperatures[index].temperatures[temperatures[index].temperatures.length - 1] : null;
-                  temperatures[index].temperatures.push(entry.temperature !== 0 ? entry.temperature : lastTemperature);
+                  temperatures[index].temperatures.push(deviceData.temperature !== 0 ? deviceData.temperature : lastTemperature);
                 }
-              });
+              // });
             }
           });
 
@@ -132,7 +133,7 @@ export default defineComponent({
               data: temperatures.map(tempData => tempData.location), // 动态设置图例
             },
           });
-        }
+        // }
       } catch (error) {
         console.error('数据请求失败:', error);
       }
